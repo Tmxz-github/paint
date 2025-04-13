@@ -1,0 +1,63 @@
+<script setup lang="ts">
+import { onMounted, ref } from "vue";
+import { Paint } from "./Paint";
+
+const canvas = ref<HTMLDivElement>();
+const paint = ref<Paint>();
+
+onMounted(() => {
+	canvas.value = document.querySelector<HTMLDivElement>("#canvas") || undefined;
+	if (!canvas.value) {
+		return;
+	}
+	paint.value = new Paint({
+		containerEl: canvas.value,
+	});
+});
+
+const setLayer = (i: number) => {
+	if (!paint.value) return;
+	const layer = paint.value?.layers[i];
+	if (!layer) return;
+	paint.value.currentLayer = layer;
+};
+const setLayerVisiable = (v: boolean, i: number) => {
+	if (!paint.value) return;
+	paint.value.setLayerInfo(v, i);
+};
+</script>
+
+<template>
+	<div>
+		<button @click="paint?.clearCurLayer">清空</button>
+		<button @click="paint?.addNewLayer">添加</button>
+		<button @click="paint?.zoomIn()">放大</button>
+		<button @click="paint?.zoomOut()">缩小</button>
+		<!-- <button @click="paint?.translate(-10)">向左</button>
+		<button @click="paint?.translate(10)">向右</button> -->
+		<div
+			id="canvas"
+			style="border: 1px solid black"
+		></div>
+		<div>
+			<div
+				v-for="(_, i) in paint?.layers"
+				@click="setLayer(i)"
+				:style="{
+					border:
+						paint?.currentLayer === paint?.layers[i] ? '1px solid black' : '',
+				}"
+			>
+				<div
+					@click="setLayerVisiable(!paint?.currentLayer.visiable, i)"
+					style="width: 100px; border: 1px solid black"
+				>
+					可见
+				</div>
+				layer {{ i }}
+			</div>
+		</div>
+	</div>
+</template>
+
+<style scoped></style>
