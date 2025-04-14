@@ -31,7 +31,7 @@ export class Cursor {
 			pos = this.lastPos;
 		}
 		this.curPos = pos;
-		this.clear();
+		// this.clear();
 		this.curCtx.save();
 		this.curCtx.lineWidth = this.cursorLineWith;
 		this.curCtx.beginPath();

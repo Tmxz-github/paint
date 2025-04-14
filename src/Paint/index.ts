@@ -16,9 +16,11 @@ export class Paint {
 	public set scaleValue(value: number) {
 		if (value <= this.minScaleValue) {
 			this._scaleValue = this.minScaleValue;
+			return;
 		}
 		if (value >= this.maxScaleValue) {
 			this._scaleValue = this.maxScaleValue;
+			return;
 		}
 		this._scaleValue = value;
 	}
@@ -103,6 +105,7 @@ export class Paint {
 		containerEl.appendChild(this.canvasElement);
 		this.canvasElement.style.cursor = "none";
 		this.canvasElement.style.touchAction = "none";
+		this.canvasElement.style.backgroundColor = "white"; // this.backgroundColor;
 		this.canvasElement.width = this.width;
 		this.canvasElement.height = this.height;
 
@@ -213,6 +216,9 @@ export class Paint {
 			x: e.offsetX,
 			y: e.offsetY,
 		};
+		// todo 每次移动都重新绘制图层太过消耗性能
+		this.renderLayers();
+
 		this.cursorRender(pointerOffsetPos);
 		if (this.grabbing) {
 			this.grabTo(pointerOffsetPos);
@@ -236,7 +242,7 @@ export class Paint {
 		this.viewCtx.save();
 		this.viewCtx.setTransform(1, 0, 0, 1, 0, 0);
 		this.viewCtx.fillStyle = this.backgroundColor;
-		this.viewCtx.fillRect(0, 0, this.canvasElement.width, this.canvasElement.height + 2);
+		this.viewCtx.fillRect(0, 0, this.canvasElement.width, this.canvasElement.height);
 		this.viewCtx.restore();
 	}
 

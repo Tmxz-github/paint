@@ -8,7 +8,7 @@ export class Path {
 
 	private setStyle() {
 		this.pathCtx.strokeStyle = "black";
-		this.pathCtx.lineWidth = 8;
+		this.pathCtx.lineWidth = 2;
 		this.pathCtx.lineCap = "round";
 	}
 
