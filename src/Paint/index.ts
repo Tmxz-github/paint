@@ -157,34 +157,13 @@ export class Paint {
 	}
 
 	private eventBind() {
-		this.canvasElement.addEventListener(
-			"pointerdown",
-			this.pointerdownEvent.bind(this)
-		);
-		this.canvasElement.addEventListener(
-			"contextmenu",
-			this.contextmenuEvent.bind(this)
-		);
-		this.canvasElement.addEventListener(
-			"pointerleave",
-			this.pointerleaveEvent.bind(this)
-		);
-		this.canvasElement.addEventListener(
-			"pointerenter",
-			this.pointerenterEvent.bind(this)
-		);
-		this.canvasElement.addEventListener(
-			"pointermove",
-			this.pointermoveEvent.bind(this)
-		);
-		this.canvasElement.addEventListener(
-			"pointerup",
-			this.pointerupEvent.bind(this)
-		);
-		this.canvasElement.addEventListener(
-			"pointercancel",
-			this.pointercancelEvent.bind(this)
-		);
+		this.canvasElement.addEventListener("pointerdown", this.pointerdownEvent.bind(this));
+		this.canvasElement.addEventListener("contextmenu", this.contextmenuEvent.bind(this));
+		this.canvasElement.addEventListener("pointerleave", this.pointerleaveEvent.bind(this));
+		this.canvasElement.addEventListener("pointerenter", this.pointerenterEvent.bind(this));
+		this.canvasElement.addEventListener("pointermove", this.pointermoveEvent.bind(this));
+		this.canvasElement.addEventListener("pointerup", this.pointerupEvent.bind(this));
+		this.canvasElement.addEventListener("pointercancel", this.pointercancelEvent.bind(this));
 		this.canvasElement.addEventListener("wheel", this.wheelEvent.bind(this));
 		this.containerEl.addEventListener("keydown", (e) => {
 			if (e.code === "Space") {
@@ -197,71 +176,6 @@ export class Paint {
 				this.grabbing = false;
 			}
 		});
-	}
-
-	public clearView() {
-		this.viewCtx.clearRect(0, 0, this.width, this.height);
-	}
-
-	public clearCurLayer() {
-		this.currentLayer.vCtx.clearRect(
-			0,
-			0,
-			this.currentLayer.vCanvas.width,
-			this.currentLayer.vCanvas.height
-		);
-		this.renderLayers();
-	}
-
-	public clearAll() {
-		for (const layer of this.layers) {
-			layer.vCtx.clearRect(0, 0, layer.vCanvas.width, layer.vCanvas.height);
-		}
-		this.clearView();
-	}
-
-	public addNewLayer() {
-		const newLayer = new Layer({
-			width: this.canvasElement.width,
-			height: this.canvasElement.height,
-		});
-		this.layers.push(newLayer);
-
-		this.currentLayer = newLayer;
-		this.mirrorCtx.strokeStyle = "black";
-		this.mirrorCtx.lineWidth = 2;
-		this.renderLayers();
-	}
-
-	public renderLayers() {
-		this.clearView();
-		for (const layer of this.layers) {
-			if (layer.visiable) {
-				this.viewCtx.drawImage(layer.vCanvas, 0, 0);
-			}
-		}
-	}
-
-	public setLayerInfo(v: boolean, i: number) {
-		const layer = this.layers[i];
-		if (!layer) return;
-		layer.visiable = v;
-		this.renderLayers();
-	}
-
-	private getImageData(
-		sx?: number,
-		sy?: number,
-		sw?: number,
-		sh?: number,
-		settings?: ImageDataSettings
-	) {
-		if (sx === undefined) sx = 0;
-		if (sy === undefined) sy = 0;
-		if (sw === undefined) sw = this.canvasElement.width;
-		if (sh === undefined) sh = this.canvasElement.height;
-		if (settings === undefined) settings = {};
-		return this.viewCtx.getImageData(sx, sy, sw, sh, settings);
 	}
 
 	private pointerdownEvent(e: HTMLElementEventMap["pointerdown"]) {
@@ -295,41 +209,16 @@ export class Paint {
 	}
 	private pointermoveEvent(e: HTMLElementEventMap["pointermove"]) {
 		e.preventDefault();
-		if (!this.grabReady && !this.grabbing) {
-			this.cursor.render({
-				x: (e.offsetX - this.canvasOffset.x) / this.scaleValue,
-				y: (e.offsetY - this.canvasOffset.y) / this.scaleValue,
-			});
-		} else {
-			this.cursor.clear();
-		}
-		// todo
+		const pointerOffsetPos = {
+			x: e.offsetX,
+			y: e.offsetY,
+		};
+		this.cursorRender(pointerOffsetPos);
 		if (this.grabbing) {
-			const offsetX = (e.offsetX - this.grabStartPos.x) / this.scaleValue;
-			const offsetY = (e.offsetY - this.grabStartPos.y) / this.scaleValue;
-			this.renderBackground();
-			this.canvasOffset.x += offsetX;
-			this.canvasOffset.y += offsetY;
-			this.cursorOffset = {
-				x: e.offsetX - this.canvasOffset.x,
-				y: e.offsetY - this.canvasOffset.y,
-			};
-			this.viewCtx.transform(1, 0, 0, 1, offsetX, offsetY);
-			this.renderLayers();
-			this.grabStartPos = { x: e.offsetX, y: e.offsetY };
-			return;
+			this.grabTo(pointerOffsetPos);
 		}
-		if (this.canvasReady && this.currentLayer.visiable) {
-			if (
-				this.cursor.curPos.x > this.width ||
-				this.cursor.curPos.x < 0 ||
-				this.cursor.curPos.y > this.height ||
-				this.cursor.curPos.y < 0
-			) {
-				this.path.clear();
-				return;
-			}
-			this.path.render(this.cursor.curPos);
+		if (this.canvasReady && this.currentLayer.visiable && !this.grabbing) {
+			this.draw(this.cursor.curPos);
 		}
 	}
 	private pointercancelEvent(e: HTMLElementEventMap["pointercancel"]) {
@@ -340,12 +229,100 @@ export class Paint {
 	}
 	private wheelEvent(e: WheelEvent) {
 		e.preventDefault();
-		e.deltaY < 0
-			? this.zoomIn({ x: e.offsetX, y: e.offsetY })
-			: this.zoomOut({ x: e.offsetX, y: e.offsetY });
+		e.deltaY < 0 ? this.zoomIn({ x: e.offsetX, y: e.offsetY }) : this.zoomOut({ x: e.offsetX, y: e.offsetY });
 	}
 
-	zoomIn(center?: Vec2d) {
+	private renderBackground() {
+		this.viewCtx.save();
+		this.viewCtx.setTransform(1, 0, 0, 1, 0, 0);
+		this.viewCtx.fillStyle = this.backgroundColor;
+		this.viewCtx.fillRect(0, 0, this.canvasElement.width, this.canvasElement.height + 2);
+		this.viewCtx.restore();
+	}
+
+	private getImageData(sx?: number, sy?: number, sw?: number, sh?: number, settings?: ImageDataSettings) {
+		if (sx === undefined) sx = 0;
+		if (sy === undefined) sy = 0;
+		if (sw === undefined) sw = this.canvasElement.width;
+		if (sh === undefined) sh = this.canvasElement.height;
+		if (settings === undefined) settings = {};
+		return this.viewCtx.getImageData(sx, sy, sw, sh, settings);
+	}
+
+	public clearView() {
+		this.viewCtx.clearRect(0, 0, this.canvasElement.width, this.canvasElement.height);
+	}
+
+	public clearCurLayer() {
+		this.currentLayer.vCtx.clearRect(0, 0, this.currentLayer.vCanvas.width, this.currentLayer.vCanvas.height);
+		this.renderLayers();
+	}
+
+	public clearAll() {
+		for (const layer of this.layers) {
+			layer.vCtx.clearRect(0, 0, layer.vCanvas.width, layer.vCanvas.height);
+		}
+		this.clearView();
+	}
+
+	public addNewLayer() {
+		const newLayer = new Layer({
+			width: this.canvasElement.width,
+			height: this.canvasElement.height,
+		});
+		this.layers.push(newLayer);
+
+		this.currentLayer = newLayer;
+		this.renderLayers();
+	}
+
+	public renderLayers() {
+		this.renderBackground();
+		this.clearView();
+		for (const layer of this.layers) {
+			if (layer.visiable) {
+				this.viewCtx.drawImage(layer.vCanvas, 0, 0);
+			}
+		}
+	}
+
+	public setLayerInfo(v: boolean, i: number) {
+		const layer = this.layers[i];
+		if (!layer) return;
+		layer.visiable = v;
+		this.renderLayers();
+	}
+
+	public cursorRender(pos: Vec2d) {
+		if (!this.grabReady && !this.grabbing) {
+			this.cursor.render({
+				x: (pos.x - this.canvasOffset.x) / this.scaleValue,
+				y: (pos.y - this.canvasOffset.y) / this.scaleValue,
+			});
+		} else {
+			this.cursor.clear();
+		}
+	}
+
+	public grabTo(pos: Vec2d) {
+		const offsetX = pos.x - this.grabStartPos.x;
+		const offsetY = pos.y - this.grabStartPos.y;
+		this.canvasOffset.x += offsetX;
+		this.canvasOffset.y += offsetY;
+		this.viewCtx.setTransform(this.scaleValue, 0, 0, this.scaleValue, this.canvasOffset.x, this.canvasOffset.y);
+		this.renderLayers();
+		this.grabStartPos = pos;
+	}
+
+	public draw(pos: Vec2d) {
+		if (pos.x > this.canvasElement.width || pos.x < 0 || pos.y > this.canvasElement.height || pos.y < 0) {
+			this.path.clear();
+			return;
+		}
+		this.path.render(pos);
+	}
+
+	public zoomIn(center?: Vec2d) {
 		if (!center) {
 			center = {
 				x: this.canvasElement.width / 2,
@@ -359,7 +336,7 @@ export class Paint {
 		this.zoom(this.scaleValue, center);
 	}
 
-	zoomOut(center?: Vec2d) {
+	public zoomOut(center?: Vec2d) {
 		if (!center) {
 			center = {
 				x: this.canvasElement.width / 2,
@@ -373,7 +350,7 @@ export class Paint {
 		this.zoom(this.scaleValue, center);
 	}
 
-	zoom(scale: number, center?: Vec2d) {
+	public zoom(scale: number, center?: Vec2d) {
 		if (!center) {
 			center = {
 				x: this.canvasElement.width / 2,
@@ -391,26 +368,10 @@ export class Paint {
 		this.canvasOffset.x += scale > this.preScaleValue ? -deltaX : deltaX;
 		this.canvasOffset.y += scale > this.preScaleValue ? -deltaY : deltaY;
 
-		this.renderBackground();
-		this.viewCtx.setTransform(
-			scale,
-			0,
-			0,
-			scale,
-			this.canvasOffset.x,
-			this.canvasOffset.y
-		);
+		this.viewCtx.setTransform(scale, 0, 0, scale, this.canvasOffset.x, this.canvasOffset.y);
 		this.preScaleValue = scale;
 		this.renderLayers();
 		if (!this.cursorIn) return;
 		this.cursor.render();
-	}
-
-	private renderBackground() {
-		this.viewCtx.save();
-		this.viewCtx.setTransform(1, 0, 0, 1, 0, 0);
-		this.viewCtx.fillStyle = this.backgroundColor;
-		this.viewCtx.fillRect(0, 0, this.width, this.height);
-		this.viewCtx.restore();
 	}
 }
