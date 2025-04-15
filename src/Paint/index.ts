@@ -66,15 +66,19 @@ export class Paint {
 	private scaleStep: number = 0.1;
 	private preScaleValue: number = 1;
 	private cursor: Cursor;
+	/** 绘制路径 */
 	private path: Path;
 	private canvasReady: boolean = false;
+	/** 放置画布的画板背景色 */
 	private backgroundColor: string = "#f0f0f0";
+	/** 画布背景色 */
+	private canvacBackgroundColor: string = "#ffffff";
 	/** 光标在 viewCtx 对应 canvas 上的坐标 */
 	private cursorOffset: Vec2d = new Vec2d();
 	/** viewCtx 对应 canvas 偏移量 */
 	private canvasOffset: Vec2d = new Vec2d();
-	private minScaleValue: number = 0.2;
-	private maxScaleValue: number = 16;
+	private minScaleValue: number = 0.1;
+	private maxScaleValue: number = 64;
 	/**
 	 * todo
 	 * 页面加载时如果光标在元素内则需要动一下 cursor 才能渲染
@@ -83,6 +87,7 @@ export class Paint {
 	private _grabReady: boolean = false;
 	private _grabbing: boolean = false;
 	private grabStartPos: Vec2d = new Vec2d();
+	private preCursorPos: Vec2d = new Vec2d();
 
 	public currentLayer: Layer;
 	public readonly width: number = 512;
@@ -105,7 +110,7 @@ export class Paint {
 		containerEl.appendChild(this.canvasElement);
 		this.canvasElement.style.cursor = "none";
 		this.canvasElement.style.touchAction = "none";
-		this.canvasElement.style.backgroundColor = "white"; // this.backgroundColor;
+		this.canvasElement.style.backgroundColor = this.canvacBackgroundColor;
 		this.canvasElement.width = this.width;
 		this.canvasElement.height = this.height;
 
@@ -169,11 +174,13 @@ export class Paint {
 		this.canvasElement.addEventListener("pointercancel", this.pointercancelEvent.bind(this));
 		this.canvasElement.addEventListener("wheel", this.wheelEvent.bind(this));
 		this.containerEl.addEventListener("keydown", (e) => {
+			e.preventDefault();
 			if (e.code === "Space") {
 				this.grabReady = true;
 			}
 		});
 		this.containerEl.addEventListener("keyup", (e) => {
+			e.preventDefault();
 			if (e.code === "Space") {
 				this.grabReady = false;
 				this.grabbing = false;
@@ -226,6 +233,7 @@ export class Paint {
 		if (this.canvasReady && this.currentLayer.visiable && !this.grabbing) {
 			this.draw(this.cursor.curPos);
 		}
+		this.preCursorPos = this.cursor.curPos;
 	}
 	private pointercancelEvent(e: HTMLElementEventMap["pointercancel"]) {
 		e.preventDefault();
@@ -235,15 +243,23 @@ export class Paint {
 	}
 	private wheelEvent(e: WheelEvent) {
 		e.preventDefault();
-		e.deltaY < 0 ? this.zoomIn({ x: e.offsetX, y: e.offsetY }) : this.zoomOut({ x: e.offsetX, y: e.offsetY });
+		e.deltaY < 0
+			? this.zoomIn({ x: e.offsetX, y: e.offsetY }, this.scaleStep * this.scaleValue)
+			: this.zoomOut({ x: e.offsetX, y: e.offsetY }, this.scaleStep * this.scaleValue);
 	}
 
+	/** 渲染放置画布的画板 */
 	private renderBackground() {
 		this.viewCtx.save();
 		this.viewCtx.setTransform(1, 0, 0, 1, 0, 0);
 		this.viewCtx.fillStyle = this.backgroundColor;
 		this.viewCtx.fillRect(0, 0, this.canvasElement.width, this.canvasElement.height);
 		this.viewCtx.restore();
+	}
+
+	/** 光标是否移出画布 */
+	private outCanvas(pos: Vec2d) {
+		return pos.x > this.canvasElement.width || pos.x < 0 || pos.y > this.canvasElement.height || pos.y < 0;
 	}
 
 	private getImageData(sx?: number, sy?: number, sw?: number, sh?: number, settings?: ImageDataSettings) {
@@ -261,6 +277,13 @@ export class Paint {
 
 	public clearCurLayer() {
 		this.currentLayer.vCtx.clearRect(0, 0, this.currentLayer.vCanvas.width, this.currentLayer.vCanvas.height);
+		this.renderLayers();
+	}
+
+	public clearLayer(i: number) {
+		const layer = this.layers[i];
+		if (!layer) return;
+		layer.vCtx.clearRect(0, 0, layer.vCanvas.width, layer.vCanvas.height);
 		this.renderLayers();
 	}
 
@@ -292,6 +315,7 @@ export class Paint {
 		}
 	}
 
+	/** 设置图层信息，目前只设置是否可见 */
 	public setLayerInfo(v: boolean, i: number) {
 		const layer = this.layers[i];
 		if (!layer) return;
@@ -299,6 +323,9 @@ export class Paint {
 		this.renderLayers();
 	}
 
+	/**
+	 * @param pos 光标在 canvas 元素上的坐标
+	 */
 	public cursorRender(pos: Vec2d) {
 		if (!this.grabReady && !this.grabbing) {
 			this.cursor.render({
@@ -310,6 +337,9 @@ export class Paint {
 		}
 	}
 
+	/**
+	 * @param pos 光标在 canvas 元素上的坐标
+	 */
 	public grabTo(pos: Vec2d) {
 		const offsetX = pos.x - this.grabStartPos.x;
 		const offsetY = pos.y - this.grabStartPos.y;
@@ -320,15 +350,27 @@ export class Paint {
 		this.grabStartPos = pos;
 	}
 
-	public draw(pos: Vec2d) {
-		if (pos.x > this.canvasElement.width || pos.x < 0 || pos.y > this.canvasElement.height || pos.y < 0) {
+	/**
+	 * @param pos 光标在画布上的坐标，由计算得到
+	 */
+	public draw(pos: Vec2d):void {
+		if (this.outCanvas(this.preCursorPos) && this.outCanvas(pos)) {
 			this.path.clear();
+			return;
+		}
+		if (this.outCanvas(this.preCursorPos) && !this.outCanvas(pos)) {
+			// 由外到里
+			this.path.renderToEdge(this.preCursorPos, pos, true);
+			return;
+		} else if (!this.outCanvas(this.preCursorPos) && this.outCanvas(pos)) {
+			// 由里到外
+			this.path.renderToEdge(this.preCursorPos, pos, false);
 			return;
 		}
 		this.path.render(pos);
 	}
 
-	public zoomIn(center?: Vec2d) {
+	public zoomIn(center?: Vec2d, scaleStep: number = 0.1) {
 		if (!center) {
 			center = {
 				x: this.canvasElement.width / 2,
@@ -336,13 +378,13 @@ export class Paint {
 			};
 		}
 
-		this.scaleValue += this.scaleStep;
+		this.scaleValue += scaleStep;
 		if (this.scaleValue === this.preScaleValue) return;
 
-		this.zoom(this.scaleValue, center);
+		this.zoom(this.scaleValue, scaleStep, center);
 	}
 
-	public zoomOut(center?: Vec2d) {
+	public zoomOut(center?: Vec2d, scaleStep: number = 0.1) {
 		if (!center) {
 			center = {
 				x: this.canvasElement.width / 2,
@@ -350,13 +392,13 @@ export class Paint {
 			};
 		}
 
-		this.scaleValue -= this.scaleStep;
+		this.scaleValue -= scaleStep;
 		if (this.scaleValue === this.preScaleValue) return;
 
-		this.zoom(this.scaleValue, center);
+		this.zoom(this.scaleValue, scaleStep, center);
 	}
 
-	public zoom(scale: number, center?: Vec2d) {
+	public zoom(scale: number, scaleStep: number = 0.1, center?: Vec2d) {
 		if (!center) {
 			center = {
 				x: this.canvasElement.width / 2,
@@ -368,8 +410,8 @@ export class Paint {
 			y: center.y - this.canvasOffset.y,
 		};
 
-		const deltaX = (this.cursorOffset.x / this.preScaleValue) * this.scaleStep;
-		const deltaY = (this.cursorOffset.y / this.preScaleValue) * this.scaleStep;
+		const deltaX = (this.cursorOffset.x / this.preScaleValue) * scaleStep;
+		const deltaY = (this.cursorOffset.y / this.preScaleValue) * scaleStep;
 
 		this.canvasOffset.x += scale > this.preScaleValue ? -deltaX : deltaX;
 		this.canvasOffset.y += scale > this.preScaleValue ? -deltaY : deltaY;

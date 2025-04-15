@@ -12,6 +12,7 @@ onMounted(() => {
 	}
 	paint.value = new Paint({
 		containerEl: canvas.value,
+		width: 1024
 	});
 });
 
