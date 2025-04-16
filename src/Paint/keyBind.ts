@@ -341,7 +341,6 @@ export class KeyBindHandler {
 	}
 
 	emit(control: boolean, alt: boolean, shift: boolean, key?: string) {
-		console.log(...arguments)
 		key = key?.toLowerCase();
 		const k = this.genEvKey({ control, alt, shift }, key);
 		const cbs = this.evs.get(k) || [];

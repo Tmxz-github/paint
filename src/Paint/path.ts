@@ -6,13 +6,17 @@ interface pathStyle {
 	lineCap: "butt" | "round" | "square";
 }
 export class Path {
-	constructor(public pathCtx: CanvasRenderingContext2D, private points: Vec2d[] = []) {
-		this.pathCtx.strokeStyle = "black";
-		this.pathCtx.lineWidth = 4;
-		this.pathCtx.lineCap = "round";
-	}
+	constructor(
+		public pathCtx: CanvasRenderingContext2D,
+		private points: Vec2d[] = [],
+		public style: pathStyle = {
+			color: "black",
+			lineWidth: 4,
+			lineCap: "round",
+		}
+	) {}
 
-	render(curPos: Vec2d, style?: pathStyle) {
+	render(curPos: Vec2d) {
 		this.points.push(curPos);
 		if (this.points.length < 3) return;
 		const startPoint = {
@@ -23,15 +27,13 @@ export class Path {
 			x: (this.points[this.points.length - 1]!.x + this.points[this.points.length - 2]!.x) / 2,
 			y: (this.points[this.points.length - 1]!.y + this.points[this.points.length - 2]!.y) / 2,
 		};
-
 		this.pathCtx.save();
-		if (style) {
-			this.pathCtx.strokeStyle = style?.color || this.pathCtx.strokeStyle;
-			this.pathCtx.lineWidth = style?.lineWidth || this.pathCtx.lineWidth;
-			this.pathCtx.lineCap = style?.lineCap || this.pathCtx.lineCap;
-		}
-
+		this.pathCtx.strokeStyle = this.style.color || this.pathCtx.strokeStyle;
+		this.pathCtx.lineWidth = this.style.lineWidth || this.pathCtx.lineWidth;
+		this.pathCtx.lineCap = this.style.lineCap || this.pathCtx.lineCap;
 		const controlPoint = this.points[this.points.length - 2]!;
+
+		this.pathCtx.beginPath();
 		this.pathCtx.moveTo(startPoint.x, startPoint.y);
 		this.pathCtx.quadraticCurveTo(controlPoint.x, controlPoint.y, endPoint.x, endPoint.y);
 		this.pathCtx.stroke();
@@ -41,7 +43,12 @@ export class Path {
 	}
 
 	/** 处理光标跨过画布边缘时的情况 */
-	renderToEdge(prePos:Vec2d, curPos:Vec2d,fromOut: boolean) {
+	renderToEdge(prePos: Vec2d, curPos: Vec2d, fromOut: boolean) {
+		this.pathCtx.save();
+		this.pathCtx.strokeStyle = this.style.color || this.pathCtx.strokeStyle;
+		this.pathCtx.lineWidth = this.style.lineWidth || this.pathCtx.lineWidth;
+		this.pathCtx.lineCap = this.style.lineCap || this.pathCtx.lineCap;
+		this.pathCtx.beginPath();
 		if (fromOut) {
 			const edgePoint: Vec2d = this.getEdgePoint(prePos);
 			const controlPoint = {
@@ -62,6 +69,8 @@ export class Path {
 			this.pathCtx.quadraticCurveTo(lastPoint.x, lastPoint.y, edgePoint.x, edgePoint.y);
 			this.pathCtx.stroke();
 		}
+
+		this.pathCtx.save();
 	}
 
 	/** 光标跨过边缘时与边缘的交点 */

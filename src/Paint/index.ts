@@ -187,11 +187,11 @@ export class Paint {
 
 		this.keyBindHandler.on(" :down", () => {
 			this.grabReady = true;
-		})
+		});
 		this.keyBindHandler.on(" :up", () => {
 			this.grabReady = false;
 			this.grabbing = false;
-		})
+		});
 	}
 
 	private pointerdownEvent(e: HTMLElementEventMap["pointerdown"]) {
@@ -216,7 +216,8 @@ export class Paint {
 		this.canvasReady = false;
 		this.cursorIn = false;
 		this.path.clear();
-		this.cursor.clear();
+		// todo
+		this.renderLayers();
 	}
 	private pointerenterEvent(e: HTMLElementEventMap["pointerenter"]) {
 		e.preventDefault();
@@ -339,7 +340,8 @@ export class Paint {
 				y: (pos.y - this.canvasOffset.y) / this.scaleValue,
 			});
 		} else {
-			this.cursor.clear();
+			// todo
+			this.renderLayers();
 		}
 	}
 
