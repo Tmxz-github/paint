@@ -171,7 +171,7 @@ interface afterAltShift {
 }
 
 interface returnOn {
-	on: (key: KeyboardKey, cb: () => void) => void;
+	on: (key: KeyboardKey, cb: () => void, env: object) => void;
 }
 
 export class KeyBindHandler {
@@ -322,9 +322,9 @@ export class KeyBindHandler {
 		return { on, control, alt };
 	}
 
-	on(key: KeyboardKey, cb: () => void) {
+	on(key: KeyboardKey, cb: () => void, env?: object) {
 		key = key.toLowerCase() as KeyboardKey;
-		this.keyHandler(key, cb);
+		this.keyHandler(key, cb.bind(env));
 	}
 
 	offAll(key: KeyboardKey) {
