@@ -50,7 +50,7 @@ export class Paint {
 			if (this.grabReady) {
 				this.canvasElement.style.cursor = "grab";
 			} else {
-				this.canvasElement.style.cursor = "none";
+				this.canvasElement.style.cursor = "crosshair";
 			}
 		}
 		this._grabbing = value;
@@ -61,10 +61,10 @@ export class Paint {
 	private canvasElement: HTMLCanvasElement;
 	/** 视窗绘制上下文 */
 	private viewCtx: CanvasRenderingContext2D;
-	/** 视窗以及当前图层的混合代理上下文  */
+	/** 同步 currentLayer  */
 	private mirrorCtx: CanvasRenderingContext2D;
 	private _scaleValue: number = 1;
-	private scaleStep: number = 0.1;
+	private scaleStep: number = 0.2;
 	private preScaleValue: number = 1;
 	private cursor: Cursor;
 	/** 绘制路径 */
@@ -139,12 +139,12 @@ export class Paint {
 		this.eventBind();
 	}
 
-	/** 在 mirrorCtx 上进行的操作会同时作用与 currentLaye.vCtx 和 viewCtx */
+	/** 保证 currentLayer 变化时同步到 path 上 */
 	private createMirroredContext(): CanvasRenderingContext2D {
 		const env = this;
 		return new Proxy({} as CanvasRenderingContext2D, {
 			get(_, prop: keyof CanvasRenderingContext2D) {
-				const ctxs = [env.viewCtx, env.currentLayer.vCtx];
+				const ctxs = [env.currentLayer.vCtx];
 				const value = ctxs[0]![prop];
 				if (typeof value === "function") {
 					return (...args: any[]) => {
@@ -158,7 +158,7 @@ export class Paint {
 				}
 			},
 			set(_, prop: keyof CanvasRenderingContext2D, value: any) {
-				const ctxs = [env.viewCtx, env.currentLayer.vCtx];
+				const ctxs = [env.currentLayer.vCtx];
 				for (const ctx of ctxs) {
 					(ctx as any)[prop] = value;
 				}
@@ -192,6 +192,8 @@ export class Paint {
 			this.grabReady = false;
 			this.grabbing = false;
 		});
+		this.keyBindHandler.on("w:down", this.zoomIn, this);
+		this.keyBindHandler.on("s:down", this.zoomOut, this);
 	}
 
 	private pointerdownEvent(e: HTMLElementEventMap["pointerdown"]) {
@@ -204,6 +206,10 @@ export class Paint {
 			x: e.offsetX,
 			y: e.offsetY,
 		};
+		this.path.downPos = this.cursor.curPos;
+		if (this.canvasReady && this.currentLayer.visiable && !this.grabbing) {
+			this.draw(this.cursor.curPos);
+		}
 	}
 	private pointerupEvent(e: HTMLElementEventMap["pointerup"]) {
 		e.preventDefault();
@@ -226,6 +232,7 @@ export class Paint {
 	}
 	private pointermoveEvent(e: HTMLElementEventMap["pointermove"]) {
 		e.preventDefault();
+		if (e.movementX === 0 && e.movementY === 0) return;
 		const pointerOffsetPos = {
 			x: e.offsetX,
 			y: e.offsetY,

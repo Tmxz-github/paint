@@ -9,37 +9,69 @@ export class Path {
 	constructor(
 		public pathCtx: CanvasRenderingContext2D,
 		private points: Vec2d[] = [],
+		public downPos: Vec2d = new Vec2d(),
 		public style: pathStyle = {
 			color: "black",
-			lineWidth: 4,
+			lineWidth: 8,
 			lineCap: "round",
 		}
 	) {}
 
+	single = false;
 	render(curPos: Vec2d) {
 		this.points.push(curPos);
-		if (this.points.length < 3) return;
-		const startPoint = {
-			x: (this.points[this.points.length - 3]!.x + this.points[this.points.length - 2]!.x) / 2,
-			y: (this.points[this.points.length - 3]!.y + this.points[this.points.length - 2]!.y) / 2,
-		};
-		const endPoint = {
-			x: (this.points[this.points.length - 1]!.x + this.points[this.points.length - 2]!.x) / 2,
-			y: (this.points[this.points.length - 1]!.y + this.points[this.points.length - 2]!.y) / 2,
-		};
+
 		this.pathCtx.save();
 		this.pathCtx.strokeStyle = this.style.color || this.pathCtx.strokeStyle;
 		this.pathCtx.lineWidth = this.style.lineWidth || this.pathCtx.lineWidth;
 		this.pathCtx.lineCap = this.style.lineCap || this.pathCtx.lineCap;
-		const controlPoint = this.points[this.points.length - 2]!;
+
+		if (this.points.length === 1) {
+			const p = this.points[0]!;
+			this.pathCtx.beginPath();
+			this.pathCtx.arc(p.x, p.y, this.pathCtx.lineWidth / 2, 0, Math.PI * 2);
+			this.pathCtx.moveTo(p.x, p.y);
+			this.pathCtx.fill();
+			return;
+		}
+		const p3 = this.points[this.points.length - 1]!;
+		const p2 = this.points[this.points.length - 2]!;
+		const p1 = this.points[this.points.length - 3] || p3; // 当前点
+		const p0 = this.points[this.points.length - 4] || p2; // 上一个点
+
+		const distance2 = Math.pow(p1.x - this.downPos.x, 2) + Math.pow(p1.y - this.downPos.y, 2);
+		if (distance2 < this.pathCtx.lineWidth) {
+			return;
+		}
+		if (distance2 <= Math.min(Math.pow(this.pathCtx.lineWidth, 2), 16)) {
+			this.pathCtx.beginPath();
+			this.pathCtx.arc(p1.x, p1.y, this.pathCtx.lineWidth / 2, 0, Math.PI * 2);
+			this.pathCtx.fill();
+			this.downPos = p1;
+			return;
+		}
 
 		this.pathCtx.beginPath();
-		this.pathCtx.moveTo(startPoint.x, startPoint.y);
-		this.pathCtx.quadraticCurveTo(controlPoint.x, controlPoint.y, endPoint.x, endPoint.y);
-		this.pathCtx.stroke();
+		this.pathCtx.moveTo(p0.x, p0.y);
+
+		for (let step = 0; step < 1; step += 0.1) {
+			const x =
+				0.5 *
+				(2 * p1.x +
+					(-p0.x + p2.x) * step +
+					(2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * step * step +
+					(-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * step * step * step);
+			const y =
+				0.5 *
+				(2 * p1.y +
+					(-p0.y + p2.y) * step +
+					(2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * step * step +
+					(-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * step * step * step);
+			this.pathCtx.lineTo(x, y);
+			this.pathCtx.stroke();
+		}
 
 		this.pathCtx.restore();
-		this.points.shift();
 	}
 
 	/** 处理光标跨过画布边缘时的情况 */
