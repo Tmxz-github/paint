@@ -2,6 +2,7 @@ import { Cursor } from "./cursor";
 import { Layer } from "./layer";
 import { Path } from "./path";
 import { Vec2d } from "./types";
+import { KeyBindHandler } from "./keyBind";
 
 interface PaintOption {
 	containerEl: HTMLElement;
@@ -88,6 +89,8 @@ export class Paint {
 	private _grabbing: boolean = false;
 	private grabStartPos: Vec2d = new Vec2d();
 	private preCursorPos: Vec2d = new Vec2d();
+	/** 处理键盘绑定 */
+	private keyBindHandler: KeyBindHandler = KeyBindHandler.Instance;
 
 	public currentLayer: Layer;
 	public readonly width: number = 512;
@@ -175,17 +178,20 @@ export class Paint {
 		this.canvasElement.addEventListener("wheel", this.wheelEvent.bind(this));
 		this.containerEl.addEventListener("keydown", (e) => {
 			e.preventDefault();
-			if (e.code === "Space") {
-				this.grabReady = true;
-			}
+			this.keyBindHandler.emit(e.ctrlKey, e.altKey, e.shiftKey, e.key + ":down");
 		});
 		this.containerEl.addEventListener("keyup", (e) => {
 			e.preventDefault();
-			if (e.code === "Space") {
-				this.grabReady = false;
-				this.grabbing = false;
-			}
+			this.keyBindHandler.emit(e.ctrlKey, e.altKey, e.shiftKey, e.key + ":up");
 		});
+
+		this.keyBindHandler.on(" :down", () => {
+			this.grabReady = true;
+		})
+		this.keyBindHandler.on(" :up", () => {
+			this.grabReady = false;
+			this.grabbing = false;
+		})
 	}
 
 	private pointerdownEvent(e: HTMLElementEventMap["pointerdown"]) {
@@ -353,7 +359,7 @@ export class Paint {
 	/**
 	 * @param pos 光标在画布上的坐标，由计算得到
 	 */
-	public draw(pos: Vec2d):void {
+	public draw(pos: Vec2d): void {
 		if (this.outCanvas(this.preCursorPos) && this.outCanvas(pos)) {
 			this.path.clear();
 			return;
