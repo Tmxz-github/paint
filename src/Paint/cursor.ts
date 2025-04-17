@@ -1,11 +1,11 @@
 import type { Layer } from "./layer";
-import { type Vec2d } from "./types";
+import { type Vec2D } from "./types";
 
 export class Cursor {
-	public get curPos(): Vec2d {
+	public get curPos(): Vec2D {
 		return this._curPos;
 	}
-	public set curPos(value: Vec2d) {
+	public set curPos(value: Vec2D) {
 		this._curPos = value;
 	}
 	public get ridus(): number {
@@ -16,22 +16,22 @@ export class Cursor {
 		this._ridus = value;
 		this.render();
 	}
-	public get lastPos(): Vec2d {
+	public get lastPos(): Vec2D {
 		return this._lastPos;
 	}
-	public set lastPos(value: Vec2d) {
+	public set lastPos(value: Vec2D) {
 		this._lastPos = value;
 	}
 	constructor(
 		private curCtx: CanvasRenderingContext2D,
 		private layers: Layer[],
-		private _curPos: Vec2d = { x: 0, y: 0 },
-		private _lastPos: Vec2d = { x: 0, y: 0 },
+		private _curPos: Vec2D = { x: 0, y: 0 },
+		private _lastPos: Vec2D = { x: 0, y: 0 },
 		private _ridus: number = 8,
 		public cursorLineWith: number = 1
 	) {}
 
-	render(pos?: Vec2d) {
+	render(pos?: Vec2D) {
 		if (!pos) {
 			pos = this.lastPos;
 		}

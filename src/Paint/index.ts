@@ -1,7 +1,7 @@
 import { Cursor } from "./cursor";
 import { Layer } from "./layer";
 import { Path } from "./path";
-import { Vec2d } from "./types";
+import { Vec2D } from "./types";
 import { KeyBindHandler } from "./keyBind";
 
 interface PaintOption {
@@ -75,9 +75,9 @@ export class Paint {
 	/** 画布背景色 */
 	private canvacBackgroundColor: string = "#ffffff";
 	/** 光标在 viewCtx 对应 canvas 上的坐标 */
-	private cursorOffset: Vec2d = new Vec2d();
+	private cursorOffset: Vec2D = new Vec2D();
 	/** viewCtx 对应 canvas 偏移量 */
-	private canvasOffset: Vec2d = new Vec2d();
+	private canvasOffset: Vec2D = new Vec2D();
 	private minScaleValue: number = 0.1;
 	private maxScaleValue: number = 64;
 	/**
@@ -87,8 +87,8 @@ export class Paint {
 	private cursorIn: boolean = false;
 	private _grabReady: boolean = false;
 	private _grabbing: boolean = false;
-	private grabStartPos: Vec2d = new Vec2d();
-	private preCursorPos: Vec2d = new Vec2d();
+	private grabStartPos: Vec2D = new Vec2D();
+	private preCursorPos: Vec2D = new Vec2D();
 	/** 处理键盘绑定 */
 	private keyBindHandler: KeyBindHandler = KeyBindHandler.Instance;
 
@@ -272,7 +272,7 @@ export class Paint {
 	}
 
 	/** 光标是否移出画布 */
-	private outCanvas(pos: Vec2d) {
+	private outCanvas(pos: Vec2D) {
 		return pos.x > this.canvasElement.width || pos.x < 0 || pos.y > this.canvasElement.height || pos.y < 0;
 	}
 
@@ -340,7 +340,7 @@ export class Paint {
 	/**
 	 * @param pos 光标在 canvas 元素上的坐标
 	 */
-	public cursorRender(pos: Vec2d) {
+	public cursorRender(pos: Vec2D) {
 		if (!this.grabReady && !this.grabbing) {
 			this.cursor.render({
 				x: (pos.x - this.canvasOffset.x) / this.scaleValue,
@@ -355,7 +355,7 @@ export class Paint {
 	/**
 	 * @param pos 光标在 canvas 元素上的坐标
 	 */
-	public grabTo(pos: Vec2d) {
+	public grabTo(pos: Vec2D) {
 		const offsetX = pos.x - this.grabStartPos.x;
 		const offsetY = pos.y - this.grabStartPos.y;
 		this.canvasOffset.x += offsetX;
@@ -368,7 +368,7 @@ export class Paint {
 	/**
 	 * @param pos 光标在画布上的坐标，由计算得到
 	 */
-	public draw(pos: Vec2d): void {
+	public draw(pos: Vec2D): void {
 		if (this.outCanvas(this.preCursorPos) && this.outCanvas(pos)) {
 			this.path.clear();
 			return;
@@ -385,7 +385,7 @@ export class Paint {
 		this.path.render(pos);
 	}
 
-	public zoomIn(center?: Vec2d, scaleStep: number = 0.1) {
+	public zoomIn(center?: Vec2D, scaleStep: number = 0.1) {
 		if (!center) {
 			center = {
 				x: this.canvasElement.width / 2,
@@ -399,7 +399,7 @@ export class Paint {
 		this.zoom(this.scaleValue, scaleStep, center);
 	}
 
-	public zoomOut(center?: Vec2d, scaleStep: number = 0.1) {
+	public zoomOut(center?: Vec2D, scaleStep: number = 0.1) {
 		if (!center) {
 			center = {
 				x: this.canvasElement.width / 2,
@@ -413,7 +413,7 @@ export class Paint {
 		this.zoom(this.scaleValue, scaleStep, center);
 	}
 
-	public zoom(scale: number, scaleStep: number = 0.1, center?: Vec2d) {
+	public zoom(scale: number, scaleStep: number = 0.1, center?: Vec2D) {
 		if (!center) {
 			center = {
 				x: this.canvasElement.width / 2,

@@ -1,4 +1,4 @@
-import { Vec2d } from "./types";
+import { Vec2D } from "./types";
 
 interface pathStyle {
 	color: string;
@@ -8,17 +8,17 @@ interface pathStyle {
 export class Path {
 	constructor(
 		public pathCtx: CanvasRenderingContext2D,
-		private points: Vec2d[] = [],
-		public downPos: Vec2d = new Vec2d(),
+		private points: Vec2D[] = [],
+		public downPos: Vec2D = new Vec2D(),
 		public style: pathStyle = {
 			color: "black",
-			lineWidth: 8,
+			lineWidth: 4,
 			lineCap: "round",
 		}
 	) {}
 
 	single = false;
-	render(curPos: Vec2d) {
+	render(curPos: Vec2D) {
 		this.points.push(curPos);
 
 		this.pathCtx.save();
@@ -75,14 +75,14 @@ export class Path {
 	}
 
 	/** 处理光标跨过画布边缘时的情况 */
-	renderToEdge(prePos: Vec2d, curPos: Vec2d, fromOut: boolean) {
+	renderToEdge(prePos: Vec2D, curPos: Vec2D, fromOut: boolean) {
 		this.pathCtx.save();
 		this.pathCtx.strokeStyle = this.style.color || this.pathCtx.strokeStyle;
 		this.pathCtx.lineWidth = this.style.lineWidth || this.pathCtx.lineWidth;
 		this.pathCtx.lineCap = this.style.lineCap || this.pathCtx.lineCap;
 		this.pathCtx.beginPath();
 		if (fromOut) {
-			const edgePoint: Vec2d = this.getEdgePoint(prePos);
+			const edgePoint: Vec2D = this.getEdgePoint(prePos);
 			const controlPoint = {
 				x: (curPos.x + edgePoint.x) / 2,
 				y: (curPos.y + edgePoint.y) / 2,
@@ -94,7 +94,7 @@ export class Path {
 			this.points.push(curPos);
 			this.pathCtx.stroke();
 		} else {
-			const edgePoint: Vec2d = this.getEdgePoint(curPos);
+			const edgePoint: Vec2D = this.getEdgePoint(curPos);
 			const lastPoint = this.points[this.points.length - 1];
 			if (!lastPoint) return;
 
@@ -106,8 +106,8 @@ export class Path {
 	}
 
 	/** 光标跨过边缘时与边缘的交点 */
-	getEdgePoint(prePos: Vec2d): Vec2d {
-		const edgePoint: Vec2d = new Vec2d();
+	getEdgePoint(prePos: Vec2D): Vec2D {
+		const edgePoint: Vec2D = new Vec2D();
 		if (prePos.x > 0 && prePos.x < this.pathCtx.canvas.width && prePos.y < 0) {
 			edgePoint.x = prePos.x;
 			edgePoint.y = 0;
