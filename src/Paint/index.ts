@@ -1,8 +1,10 @@
 import { Cursor } from "./cursor";
 import { Layer } from "./layer";
-import { Path } from "./path";
-import { Vec2D } from "./types";
+import { Vec2D } from "./types"; 
 import { KeyBindHandler } from "./keyBind";
+import { Line } from "./Line";
+import type { Brush } from "./Brushes";
+import { Pen } from "./Brushes/Pen";
 
 interface PaintOption {
 	containerEl: HTMLElement;
@@ -67,8 +69,6 @@ export class Paint {
 	private scaleStep: number = 0.2;
 	private preScaleValue: number = 1;
 	private cursor: Cursor;
-	/** 绘制路径 */
-	private path: Path;
 	private canvasReady: boolean = false;
 	/** 放置画布的画板背景色 */
 	private backgroundColor: string = "#f0f0f0";
@@ -88,9 +88,10 @@ export class Paint {
 	private _grabReady: boolean = false;
 	private _grabbing: boolean = false;
 	private grabStartPos: Vec2D = new Vec2D();
-	private preCursorPos: Vec2D = new Vec2D();
 	/** 处理键盘绑定 */
 	private keyBindHandler: KeyBindHandler = KeyBindHandler.Instance;
+	private line: Line;
+	private brush: Brush; 
 
 	public currentLayer: Layer;
 	public readonly width: number = 512;
@@ -132,7 +133,9 @@ export class Paint {
 
 		this.mirrorCtx = this.createMirroredContext();
 
-		this.path = new Path(this.mirrorCtx);
+		this.brush = new Pen(this.mirrorCtx, 2);
+
+		this.line = new Line(this.mirrorCtx, this.brush);
 
 		this.cursor = new Cursor(this.viewCtx, this.layers);
 
@@ -206,22 +209,23 @@ export class Paint {
 			x: e.offsetX,
 			y: e.offsetY,
 		};
-		this.path.downPos = this.cursor.curPos;
 		if (this.canvasReady && this.currentLayer.visiable && !this.grabbing) {
-			this.draw(this.cursor.curPos);
+			this.line.startLine(this.cursor.curPos);
+			this.renderLayers();
+			//todo
 		}
 	}
 	private pointerupEvent(e: HTMLElementEventMap["pointerup"]) {
 		e.preventDefault();
 		this.canvasReady = false;
 		this.grabbing = false;
-		this.path.clear();
+		this.line.endLine();
 	}
 	private pointerleaveEvent(e: HTMLElementEventMap["pointerleave"]) {
 		e.preventDefault();
 		this.canvasReady = false;
 		this.cursorIn = false;
-		this.path.clear();
+		this.line.endLine();
 		// todo
 		this.renderLayers();
 	}
@@ -247,7 +251,6 @@ export class Paint {
 		if (this.canvasReady && this.currentLayer.visiable && !this.grabbing) {
 			this.draw(this.cursor.curPos);
 		}
-		this.preCursorPos = this.cursor.curPos;
 	}
 	private pointercancelEvent(e: HTMLElementEventMap["pointercancel"]) {
 		e.preventDefault();
@@ -369,20 +372,7 @@ export class Paint {
 	 * @param pos 光标在画布上的坐标，由计算得到
 	 */
 	public draw(pos: Vec2D): void {
-		if (this.outCanvas(this.preCursorPos) && this.outCanvas(pos)) {
-			this.path.clear();
-			return;
-		}
-		if (this.outCanvas(this.preCursorPos) && !this.outCanvas(pos)) {
-			// 由外到里
-			this.path.renderToEdge(this.preCursorPos, pos, true);
-			return;
-		} else if (!this.outCanvas(this.preCursorPos) && this.outCanvas(pos)) {
-			// 由里到外
-			this.path.renderToEdge(this.preCursorPos, pos, false);
-			return;
-		}
-		this.path.render(pos);
+		this.line.lineTo(pos);
 	}
 
 	public zoomIn(center?: Vec2D, scaleStep: number = 0.1) {
