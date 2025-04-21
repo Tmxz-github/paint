@@ -122,8 +122,7 @@ type singleChar =
 
 type downUp = "down" | "up";
 
-type KeyboardKey = `${singleChar}:${downUp}`
-
+type KeyboardKey = `${singleChar}:${downUp}`;
 
 interface afterControl {
 	alt: {
@@ -174,12 +173,12 @@ interface returnOn {
 	on: (key: KeyboardKey, cb: () => void, env: object) => void;
 }
 
-export class KeyBindHandler {
+export class KeyListener {
 	static Instance = new this();
 
 	private constructor() {}
 
-	public evs: Map<string, Function[]> = new Map();
+	private evs: Map<string, Function[]> = new Map();
 
 	private curKeyState: KeyState = new KeyState();
 
@@ -206,10 +205,10 @@ export class KeyBindHandler {
 			const evKey = this.genEvKey(this.curKeyState, key);
 			let cbs = this.evs.get(evKey);
 			if (!cbs) {
-				cbs = []
+				cbs = [];
 				this.evs.set(evKey, cbs);
 			}
-			cbs.push(cb)
+			cbs.push(cb);
 			this.curKeyState = new KeyState();
 		}
 	}
@@ -329,7 +328,7 @@ export class KeyBindHandler {
 
 	offAll(key: KeyboardKey) {
 		key = key.toLowerCase() as KeyboardKey;
-		this.evs.delete(key)
+		this.evs.delete(key);
 	}
 
 	off(key: KeyboardKey, cb: Function) {

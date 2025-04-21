@@ -12,7 +12,7 @@ onMounted(() => {
 	}
 	paint.value = new Paint({
 		containerEl: canvas.value,
-		width: 1024
+		width: 1024,
 	});
 });
 
@@ -26,16 +26,33 @@ const setLayerVisiable = (v: boolean, i: number) => {
 	if (!paint.value) return;
 	paint.value.setLayerInfo(v, i);
 };
+
 </script>
 
 <template>
 	<div>
 		<button @click="paint?.clearCurLayer">清空</button>
 		<button @click="paint?.addNewLayer">添加</button>
-		<button @click="paint?.zoomIn()">放大</button>
-		<button @click="paint?.zoomOut()">缩小</button>
-		<!-- <button @click="paint?.translate(-10)">向左</button>
-		<button @click="paint?.translate(10)">向右</button> -->
+		<button @click="paint?.swtichBursh('PEN')">笔</button>
+		<button @click="paint?.swtichBursh('ERASER')">橡皮</button>
+		<button
+			@click="
+				paint?.setBrushStyle({
+					size: paint.getBrushStyle().size + 1,
+				})
+			"
+		>
+			粗线
+		</button>
+		<button
+			@click="
+				paint?.setBrushStyle({
+					size: paint.getBrushStyle().size - 1,
+				})
+			"
+		>
+			细线
+		</button>
 		<div
 			id="canvas"
 			style="border: 1px solid black"
@@ -45,8 +62,7 @@ const setLayerVisiable = (v: boolean, i: number) => {
 				v-for="(_, i) in paint?.layers"
 				@click="setLayer(i)"
 				:style="{
-					border:
-						paint?.currentLayer === paint?.layers[i] ? '1px solid black' : '',
+					border: paint?.currentLayer === paint?.layers[i] ? '1px solid black' : '',
 				}"
 			>
 				<div

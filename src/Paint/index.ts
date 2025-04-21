@@ -1,10 +1,12 @@
-import { Cursor } from "./cursor";
-import { Layer } from "./layer";
-import { Vec2D } from "./types"; 
-import { KeyBindHandler } from "./keyBind";
+import { Cursor } from "./Cursor";
+import { Layer } from "./Layer";
+import { Vec2D } from "./types";
+import { KeyListener } from "./Input/key-listener";
 import { Line } from "./Line";
-import type { Brush } from "./Brushes";
 import { Pen } from "./Brushes/Pen";
+import { PointerListener } from "./Input/pointer-listener";
+import type { Brush, BrushStyle, BurshTypes } from "./Brushes";
+import { Eraser } from "./Brushes/Eraser";
 
 interface PaintOption {
 	containerEl: HTMLElement;
@@ -88,15 +90,18 @@ export class Paint {
 	private _grabReady: boolean = false;
 	private _grabbing: boolean = false;
 	private grabStartPos: Vec2D = new Vec2D();
-	/** 处理键盘绑定 */
-	private keyBindHandler: KeyBindHandler = KeyBindHandler.Instance;
-	private line: Line;
-	private brush: Brush; 
+	private brush: Brush;
+	private mirrorBursh: Brush;
+	private readonly line: Line;
+	private readonly brushes: Map<BurshTypes, Brush> = new Map();
+	private readonly pointerListener: PointerListener;
 
-	public currentLayer: Layer;
+	/** 处理键盘绑定 */
+	public readonly keyListener: KeyListener = KeyListener.Instance;
 	public readonly width: number = 512;
 	public readonly height: number = 512;
 	public readonly layers: Layer[] = [];
+	public currentLayer: Layer;
 
 	constructor(option: PaintOption) {
 		let { containerEl, width, height } = option;
@@ -118,6 +123,8 @@ export class Paint {
 		this.canvasElement.width = this.width;
 		this.canvasElement.height = this.height;
 
+		this.pointerListener = new PointerListener(this.canvasElement);
+
 		this.viewCtx = this.canvasElement.getContext("2d")!;
 		if (!this.viewCtx) {
 			throw new Error("bad");
@@ -133,13 +140,25 @@ export class Paint {
 
 		this.mirrorCtx = this.createMirroredContext();
 
-		this.brush = new Pen(this.mirrorCtx, 2);
+		this.initBrushes();
 
-		this.line = new Line(this.mirrorCtx, this.brush);
+		this.brush = this.brushes.get("PEN")!;
+
+		this.mirrorBursh = this.createMirrorBursh();
+
+		this.line = new Line(this.mirrorCtx, this.mirrorBursh);
 
 		this.cursor = new Cursor(this.viewCtx, this.layers);
 
 		this.eventBind();
+	}
+
+	private initBrushes() {
+		const pen = new Pen(this.mirrorCtx, 2, 2, "black");
+		this.brushes.set("PEN", pen);
+
+		const eraser = new Eraser(this.mirrorCtx, 2, 2);
+		this.brushes.set("ERASER", eraser);
 	}
 
 	/** 保证 currentLayer 变化时同步到 path 上 */
@@ -153,7 +172,7 @@ export class Paint {
 					return (...args: any[]) => {
 						for (const ctx of ctxs) {
 							const v = ctx[prop];
-							(v as Function).apply(ctx, args);
+							return (v as Function).apply(ctx, args);
 						}
 					};
 				} else {
@@ -162,6 +181,33 @@ export class Paint {
 			},
 			set(_, prop: keyof CanvasRenderingContext2D, value: any) {
 				const ctxs = [env.currentLayer.vCtx];
+				for (const ctx of ctxs) {
+					(ctx as any)[prop] = value;
+				}
+				return true;
+			},
+		});
+	}
+
+	private createMirrorBursh():Brush {
+		const env = this;
+		return new Proxy({} as Brush, {
+			get(_, prop: keyof Brush) {
+				const ctxs = [env.brush];
+				const value = ctxs[0]![prop];
+				if (typeof value === "function") {
+					return (...args: any[]) => {
+						for (const ctx of ctxs) {
+							const v = ctx[prop];
+							return (v as Function).apply(ctx, args);
+						}
+					};
+				} else {
+					return value;
+				}
+			},
+			set(_, prop: keyof CanvasRenderingContext2D, value: any) {
+				const ctxs = [env.brush];
 				for (const ctx of ctxs) {
 					(ctx as any)[prop] = value;
 				}
@@ -181,22 +227,22 @@ export class Paint {
 		this.canvasElement.addEventListener("wheel", this.wheelEvent.bind(this));
 		this.containerEl.addEventListener("keydown", (e) => {
 			e.preventDefault();
-			this.keyBindHandler.emit(e.ctrlKey, e.altKey, e.shiftKey, e.key + ":down");
+			this.keyListener.emit(e.ctrlKey, e.altKey, e.shiftKey, e.key + ":down");
 		});
 		this.containerEl.addEventListener("keyup", (e) => {
 			e.preventDefault();
-			this.keyBindHandler.emit(e.ctrlKey, e.altKey, e.shiftKey, e.key + ":up");
+			this.keyListener.emit(e.ctrlKey, e.altKey, e.shiftKey, e.key + ":up");
 		});
 
-		this.keyBindHandler.on(" :down", () => {
+		this.keyListener.on(" :down", () => {
 			this.grabReady = true;
 		});
-		this.keyBindHandler.on(" :up", () => {
+		this.keyListener.on(" :up", () => {
 			this.grabReady = false;
 			this.grabbing = false;
 		});
-		this.keyBindHandler.on("w:down", this.zoomIn, this);
-		this.keyBindHandler.on("s:down", this.zoomOut, this);
+		this.keyListener.on("w:down", this.zoomIn, this);
+		this.keyListener.on("s:down", this.zoomOut, this);
 	}
 
 	private pointerdownEvent(e: HTMLElementEventMap["pointerdown"]) {
@@ -212,7 +258,6 @@ export class Paint {
 		if (this.canvasReady && this.currentLayer.visiable && !this.grabbing) {
 			this.line.startLine(this.cursor.curPos);
 			this.renderLayers();
-			//todo
 		}
 	}
 	private pointerupEvent(e: HTMLElementEventMap["pointerup"]) {
@@ -226,7 +271,6 @@ export class Paint {
 		this.canvasReady = false;
 		this.cursorIn = false;
 		this.line.endLine();
-		// todo
 		this.renderLayers();
 	}
 	private pointerenterEvent(e: HTMLElementEventMap["pointerenter"]) {
@@ -286,6 +330,24 @@ export class Paint {
 		if (sh === undefined) sh = this.canvasElement.height;
 		if (settings === undefined) settings = {};
 		return this.viewCtx.getImageData(sx, sy, sw, sh, settings);
+	}
+
+	public swtichBursh(type: BurshTypes) {
+		this.brush = this.brushes.get(type) || this.brushes.get("PEN")!;
+	}
+
+	public setBrushStyle(options: Partial<BrushStyle>) {
+		this.brush.color = options.color || this.brush.color;
+		this.brush.thickness = options.thickness || this.brush.thickness;
+		this.brush.size = options.size || this.brush.size;
+	}
+
+	public getBrushStyle(): BrushStyle {
+		return {
+			color: this.brush.color,
+			thickness: this.brush.thickness,
+			size: this.brush.size,
+		};
 	}
 
 	public clearView() {

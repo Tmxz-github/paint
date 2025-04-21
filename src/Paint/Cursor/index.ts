@@ -1,5 +1,5 @@
-import type { Layer } from "./layer";
-import { type Vec2D } from "./types";
+import type { Layer } from "../Layer";
+import { Vec2D } from "../types";
 
 export class Cursor {
 	public get curPos(): Vec2D {
