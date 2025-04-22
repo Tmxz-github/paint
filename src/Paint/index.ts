@@ -6,6 +6,7 @@ import { Line } from "./Line";
 import { Pen, Eraser } from "./Brushes";
 import { PointerListener } from "./Input/pointer-listener";
 import type { Brush, BrushStyle, BurshTypes } from "./Brushes";
+import { createMirror } from "./Utils";
 
 interface PaintOption {
 	containerEl: HTMLElement;
@@ -137,13 +138,12 @@ export class Paint {
 		this.currentLayer = initLayer;
 		this.layers.push(this.currentLayer);
 
-		this.mirrorCtx = this.createMirroredContext();
+		this.mirrorCtx = createMirror<typeof this, CanvasRenderingContext2D>(this, ["currentLayer", "vCtx"]);
 
 		this.initBrushes();
-
 		this.brush = this.brushes.get("PEN")!;
 
-		this.mirrorBursh = this.createMirrorBursh();
+		this.mirrorBursh = createMirror<typeof this, Brush>(this, ["brush"]);
 
 		this.line = new Line(this.mirrorCtx, this.mirrorBursh);
 
@@ -158,61 +158,6 @@ export class Paint {
 
 		const eraser = new Eraser(this.mirrorCtx, 2, 2);
 		this.brushes.set("ERASER", eraser);
-	}
-
-	/** 保证 currentLayer 变化时同步到 path 上 */
-	private createMirroredContext(): CanvasRenderingContext2D {
-		const env = this;
-		return new Proxy({} as CanvasRenderingContext2D, {
-			get(_, prop: keyof CanvasRenderingContext2D) {
-				const ctxs = [env.currentLayer.vCtx];
-				const value = ctxs[0]![prop];
-				if (typeof value === "function") {
-					return (...args: any[]) => {
-						for (const ctx of ctxs) {
-							const v = ctx[prop];
-							return (v as Function).apply(ctx, args);
-						}
-					};
-				} else {
-					return value;
-				}
-			},
-			set(_, prop: keyof CanvasRenderingContext2D, value: any) {
-				const ctxs = [env.currentLayer.vCtx];
-				for (const ctx of ctxs) {
-					(ctx as any)[prop] = value;
-				}
-				return true;
-			},
-		});
-	}
-
-	private createMirrorBursh(): Brush {
-		const env = this;
-		return new Proxy({} as Brush, {
-			get(_, prop: keyof Brush) {
-				const ctxs = [env.brush];
-				const value = ctxs[0]![prop];
-				if (typeof value === "function") {
-					return (...args: any[]) => {
-						for (const ctx of ctxs) {
-							const v = ctx[prop];
-							return (v as Function).apply(ctx, args);
-						}
-					};
-				} else {
-					return value;
-				}
-			},
-			set(_, prop: keyof CanvasRenderingContext2D, value: any) {
-				const ctxs = [env.brush];
-				for (const ctx of ctxs) {
-					(ctx as any)[prop] = value;
-				}
-				return true;
-			},
-		});
 	}
 
 	private eventBind() {
