@@ -3,10 +3,9 @@ import { Layer } from "./Layer";
 import { Vec2D } from "./types";
 import { KeyListener } from "./Input/key-listener";
 import { Line } from "./Line";
-import { Pen } from "./Brushes/Pen";
+import { Pen, Eraser } from "./Brushes";
 import { PointerListener } from "./Input/pointer-listener";
 import type { Brush, BrushStyle, BurshTypes } from "./Brushes";
-import { Eraser } from "./Brushes/Eraser";
 
 interface PaintOption {
 	containerEl: HTMLElement;
@@ -189,7 +188,7 @@ export class Paint {
 		});
 	}
 
-	private createMirrorBursh():Brush {
+	private createMirrorBursh(): Brush {
 		const env = this;
 		return new Proxy({} as Brush, {
 			get(_, prop: keyof Brush) {
@@ -255,10 +254,6 @@ export class Paint {
 			x: e.offsetX,
 			y: e.offsetY,
 		};
-		if (this.canvasReady && this.currentLayer.visiable && !this.grabbing) {
-			this.line.startLine(this.cursor.curPos);
-			this.renderLayers();
-		}
 	}
 	private pointerupEvent(e: HTMLElementEventMap["pointerup"]) {
 		e.preventDefault();

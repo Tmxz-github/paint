@@ -47,27 +47,22 @@ export class Line {
 			this.originPoints[0]!.dir = Vec2D.Normalize(Vec2D.Sub(this.originPoints[1]!, this.originPoints[0]!));
 			return;
 		}
-		const pointM1 = this.originPoints[this.originPoints.length - 1];
-		const pointM2 = this.originPoints[this.originPoints.length - 2];
 		const pointM3 = this.originPoints[this.originPoints.length - 3];
+		const pointM2 = this.originPoints[this.originPoints.length - 2];
+		const pointM1 = this.originPoints[this.originPoints.length - 1];
 		pointM2.dir = Vec2D.Normalize(Vec2D.Sub(pointM1, pointM3));
 		if (isNaN(pointM2.dir.x) || isNaN(pointM2.dir.y)) {
 			//when xy -3 == -1
 			pointM2.dir = JSON.parse(JSON.stringify(pointM3.dir));
 		}
 		this.bezierPoints = genBezierPoints(
+			this.originPoints[this.originPoints.length - 3],
 			this.originPoints[this.originPoints.length - 2],
-			this.originPoints[this.originPoints.length - 1],
 			20
 		);
 
 		this.pointsLine.addPoints(this.bezierPoints);
 		this.renderLine();
-
-		// this.brush.drawDot(curPoint, {
-		// 	color: "red",
-		// 	size: 8,
-		// });
 	}
 
 	public endLine() {
@@ -83,14 +78,12 @@ export class Line {
 	}
 
 	private renderLine() {
-		const tmp = [];
 		const len = this.pointsLine.getLength();
-		let tempSpacing = Mix(2, 2, Clamp(2 / len, 0, 1));
+		let tempSpacing = Mix(this.brush.size, this.brush.size, Clamp(this.lastDot / len, 0, 1));
 		let d = this.lastDot;
 		for (; d <= len; d += tempSpacing) {
-			tempSpacing = Mix(2, 2, Clamp(2 / len, 0, 1));
+			tempSpacing = Mix(this.brush.size, this.brush.size, Clamp(d / len, 0, 1));
 			const point = this.pointsLine.getAtDist(d);
-			tmp.push(point);
 			if (this.brush?.drawDot) {
 				this.brush.drawDot(point);
 			}

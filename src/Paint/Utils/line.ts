@@ -7,7 +7,7 @@ export const genBezierPoints = (startPoint: DirPoint, endPoint: DirPoint, resolu
 	];
 	const curvePoints = [];
 	const step = 1 / resolution;
-	for (let i = 0; i <= 1; i += step) {
+	for (let i = 0; i <= 1 + step; i += step) {
 		curvePoints.push({
 			x:
 				Math.pow(1 - i, 3) * startPoint.x +

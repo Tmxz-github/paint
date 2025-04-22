@@ -7,6 +7,8 @@ export class PointsLine {
 		}
 	}
 
+	private len: number = 0;
+
 	public segmentLines: {
 		x: number;
 		y: number;
@@ -14,6 +16,7 @@ export class PointsLine {
 	}[] = [];
 
 	public addPoints(points: Vec2D[]) {
+		this.len = 0;
 		this.segmentLines = [];
 		for (let i = 0; i < points.length; i++) {
 			let length = 0;
@@ -45,6 +48,7 @@ export class PointsLine {
 	}
 
 	public getLength(): number {
+		if (this.len) return this.len;
 		let result = 0;
 		for (let i = 0; i < this.segmentLines.length - 1; i++) {
 			result += this.segmentLines[i].length;
