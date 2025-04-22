@@ -40,7 +40,7 @@ export class Pen implements Brush {
 			this.size = options.size || this.size;
 		}
 		this.burshCtx.lineWidth = 0;
-		
+
 		this.burshCtx.beginPath();
 		this.burshCtx.arc(point.x, point.y, this.size, 0, Math.PI * 2);
 		this.burshCtx.fill();

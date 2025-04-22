@@ -156,7 +156,7 @@ export class Paint {
 		const pen = new Pen(this.mirrorCtx, 2, 2, "black");
 		this.brushes.set("PEN", pen);
 
-		const eraser = new Eraser(this.mirrorCtx, 2, 2);
+		const eraser = new Eraser(this.mirrorCtx, 2, 0.5);
 		this.brushes.set("ERASER", eraser);
 	}
 
@@ -280,6 +280,7 @@ export class Paint {
 		this.brush.color = options.color || this.brush.color;
 		this.brush.thickness = options.thickness || this.brush.thickness;
 		this.brush.size = options.size || this.brush.size;
+		this.cursor.ridus = this.brush.size;
 	}
 
 	public getBrushStyle(): BrushStyle {

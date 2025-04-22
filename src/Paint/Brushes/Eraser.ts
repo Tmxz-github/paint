@@ -9,7 +9,7 @@ export class Eraser implements Brush {
 	}
 	/** 0 - 1 */
 	public set thickness(value: number) {
-		value = Clamp(value, 0, 1);
+		value = Clamp(value, 0.1, 1);
 		this._thickness = value;
 	}
 	public get size(): number {
@@ -20,7 +20,7 @@ export class Eraser implements Brush {
 		this.burshCtx.lineWidth = value;
 		this._size = value;
 	}
-	constructor(private burshCtx: CanvasRenderingContext2D, private _size: number, private _thickness: number) {}
+	constructor(private burshCtx: CanvasRenderingContext2D, private _size: number, private _thickness: number = 0.5) {}
 
 	public drawDot(point: Vec2D) {
 		this.burshCtx.save();
@@ -28,12 +28,12 @@ export class Eraser implements Brush {
 		this.burshCtx.lineWidth = 0;
 
 		this.burshCtx.beginPath();
-		this.burshCtx.arc(point.x, point.y, this.size, 0, Math.PI * 2);
+		this.burshCtx.arc(point.x, point.y, this._size, 0, Math.PI * 2);
 		this.burshCtx.clip();
-		const width = Math.floor(point.x - this.size);
-		const height = Math.floor(point.y - this.size);
-		const size = this.size * 2;
-		const imageData = this.burshCtx.getImageData(width, height, size, size);
+		const left = Math.floor(point.x - this._size);
+		const top = Math.floor(point.y - this._size);
+		const size = this._size * 2;
+		const imageData = this.burshCtx.getImageData(left, top, size, size);
 
 		this.burshCtx.globalAlpha = 0.5;
 		for (let i = 0; i < imageData.data.length; i += 4) {
@@ -41,10 +41,10 @@ export class Eraser implements Brush {
 				imageData.data[i + 3] = 0;
 				continue;
 			}
-			imageData.data[i + 3] = imageData.data[i + 3] * 0.5;
+			imageData.data[i + 3] = imageData.data[i + 3] * (1 - this._thickness);
 		}
 
-		this.burshCtx.putImageData(imageData, width, height);
+		this.burshCtx.putImageData(imageData, left, top);
 
 		this.burshCtx.restore();
 	}

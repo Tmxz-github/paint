@@ -53,6 +53,24 @@ const setLayerVisiable = (v: boolean, i: number) => {
 		>
 			细线
 		</button>
+		<button
+			@click="
+				paint?.setBrushStyle({
+					thickness: paint.getBrushStyle().thickness + 0.1,
+				})
+			"
+		>
+			加深
+		</button>
+		<button
+			@click="
+				paint?.setBrushStyle({
+					thickness: paint.getBrushStyle().thickness - 0.1,
+				})
+			"
+		>
+			变浅
+		</button>
 		<div
 			id="canvas"
 			style="border: 1px solid black"
