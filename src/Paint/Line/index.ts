@@ -80,7 +80,6 @@ export class Line {
 	private renderLine() {
 		const size = easeOutDecay(this.brush.size) / 16;
 		const len = this.pointsLine.getLength();
-		console.log(size);
 		let tempSpacing = Mix(size, size, Clamp(this.lastDot / len, 0, 1));
 		let d = this.lastDot;
 		for (; d <= len; d += tempSpacing) {

@@ -387,9 +387,12 @@ export class Paint {
 		}
 
 		this.scaleValue += scaleStep;
-		if (this.scaleValue === this.preScaleValue) return;
+		console.log(this.scaleValue)
+		if (this.scaleValue >= 64) {
+			return
+		};
 
-		this.zoom(this.scaleValue, scaleStep, center);
+		this.zoom(this.scaleValue, Math.abs(this.scaleValue - this.preScaleValue), center);
 	}
 
 	public zoomOut(center?: Vec2D, scaleStep: number = 0.1) {
@@ -401,9 +404,11 @@ export class Paint {
 		}
 
 		this.scaleValue -= scaleStep;
-		if (this.scaleValue === this.preScaleValue) return;
+		if (this.scaleValue <= 0.1) {
+			return
+		};
 
-		this.zoom(this.scaleValue, scaleStep, center);
+		this.zoom(this.scaleValue, Math.abs(this.scaleValue - this.preScaleValue), center);
 	}
 
 	public zoom(scale: number, scaleStep: number = 0.1, center?: Vec2D) {
