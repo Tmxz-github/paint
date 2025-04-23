@@ -1,9 +1,17 @@
 export const Mix = (a: number, b: number, f: number): number => {
 	return a * (1 - f) + b * f;
 };
+
 export const Clamp = (num: number, min: number, max: number): number => {
 	return num < min ? min : num > max ? max : num;
 };
+
+export const easeOutDecay = (x: number): number => {
+	const startY = 32;
+	const endY = 4;
+	const k = 0.03; // 控制下降快慢的系数，值越小越慢
+	return endY + (startY - endY) * Math.exp(-k * x);
+}
 
 /**
  * 获取一个镜像，镜像上的操作会作用与 env[...mirrorProps]

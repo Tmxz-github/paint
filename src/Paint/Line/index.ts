@@ -1,7 +1,7 @@
 import type { Brush } from "../Brushes";
 import { Pen } from "../Brushes/Pen";
 import { Vec2D, type DirPoint } from "../types";
-import { Clamp, Mix } from "../Utils";
+import { Clamp, easeOutDecay, Mix } from "../Utils";
 import { genBezierPoints } from "../Utils/line";
 import { PointsLine } from "./PointsLine";
 
@@ -43,7 +43,7 @@ export class Line {
 		if (this.originPoints.length === 1) {
 			return;
 		} else if (this.originPoints.length === 2) {
-			this.lastDot = this.brush.size;
+			this.lastDot = 0;
 			this.originPoints[0]!.dir = Vec2D.Normalize(Vec2D.Sub(this.originPoints[1]!, this.originPoints[0]!));
 			return;
 		}
@@ -78,11 +78,13 @@ export class Line {
 	}
 
 	private renderLine() {
+		const size = easeOutDecay(this.brush.size) / 16;
 		const len = this.pointsLine.getLength();
-		let tempSpacing = Mix(this.brush.size, this.brush.size, Clamp(this.lastDot / len, 0, 1));
+		console.log(size);
+		let tempSpacing = Mix(size, size, Clamp(this.lastDot / len, 0, 1));
 		let d = this.lastDot;
 		for (; d <= len; d += tempSpacing) {
-			tempSpacing = Mix(this.brush.size, this.brush.size, Clamp(d / len, 0, 1));
+			tempSpacing = Mix(size, size, Clamp(d / len, 0, 1));
 			const point = this.pointsLine.getAtDist(d);
 			if (this.brush?.drawDot) {
 				this.brush.drawDot(point);
