@@ -385,14 +385,19 @@ export class Paint {
 				y: this.canvasElement.height / 2,
 			};
 		}
+		let i = 0;
+		const frame = () => {
+			if (i >= 10) return;
+			this.scaleValue += scaleStep / 5;
+			if (this.scaleValue >= 64) {
+				return;
+			}
 
-		this.scaleValue += scaleStep;
-		console.log(this.scaleValue)
-		if (this.scaleValue >= 64) {
-			return
+			this.zoom(this.scaleValue, Math.abs(this.scaleValue - this.preScaleValue), center);
+			i += 1;
+			requestAnimationFrame(frame);
 		};
-
-		this.zoom(this.scaleValue, Math.abs(this.scaleValue - this.preScaleValue), center);
+		requestAnimationFrame(frame);
 	}
 
 	public zoomOut(center?: Vec2D, scaleStep: number = 0.1) {
@@ -402,13 +407,19 @@ export class Paint {
 				y: this.canvasElement.height / 2,
 			};
 		}
+		let i = 0;
+		const frame = () => {
+			if (i >= 6) return;
+			this.scaleValue -= scaleStep / 10;
+			if (this.scaleValue <= 0.1) {
+				return;
+			}
 
-		this.scaleValue -= scaleStep;
-		if (this.scaleValue <= 0.1) {
-			return
+			this.zoom(this.scaleValue, Math.abs(this.scaleValue - this.preScaleValue), center);
+			i += 1;
+			requestAnimationFrame(frame);
 		};
-
-		this.zoom(this.scaleValue, Math.abs(this.scaleValue - this.preScaleValue), center);
+		requestAnimationFrame(frame);
 	}
 
 	public zoom(scale: number, scaleStep: number = 0.1, center?: Vec2D) {
