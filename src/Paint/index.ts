@@ -6,7 +6,7 @@ import { Line } from "./Line";
 import { Pen, Eraser } from "./Brushes";
 import { PointerListener } from "./Input/pointer-listener";
 import type { Brush, BrushStyle, BurshTypes } from "./Brushes";
-import { createMirror } from "./Utils";
+import { Clamp, createMirror } from "./Utils";
 
 interface PaintOption {
 	containerEl: HTMLElement;
@@ -19,14 +19,7 @@ export class Paint {
 		return this._scaleValue;
 	}
 	public set scaleValue(value: number) {
-		if (value <= this.minScaleValue) {
-			this._scaleValue = this.minScaleValue;
-			return;
-		}
-		if (value >= this.maxScaleValue) {
-			this._scaleValue = this.maxScaleValue;
-			return;
-		}
+		value = Clamp(value, this.minScaleValue, this.maxScaleValue);
 		this._scaleValue = value;
 	}
 
@@ -389,7 +382,7 @@ export class Paint {
 		const frame = () => {
 			if (i >= 10) return;
 			this.scaleValue += scaleStep / 5;
-			if (this.scaleValue >= 64) {
+			if (this.scaleValue ===  this.preScaleValue) {
 				return;
 			}
 
@@ -411,7 +404,7 @@ export class Paint {
 		const frame = () => {
 			if (i >= 6) return;
 			this.scaleValue -= scaleStep / 10;
-			if (this.scaleValue <= 0.1) {
+			if (this.scaleValue ===  this.preScaleValue) {
 				return;
 			}
 

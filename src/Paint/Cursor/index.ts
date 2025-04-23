@@ -1,5 +1,6 @@
 import type { Layer } from "../Layer";
 import { Vec2D } from "../types";
+import { Clamp } from "../Utils";
 
 export class Cursor {
 	public get curPos(): Vec2D {
@@ -12,7 +13,7 @@ export class Cursor {
 		return this._ridus;
 	}
 	public set ridus(value: number) {
-		if (value > 256 || value < 4) return;
+		value = Clamp(value, 4, 128);
 		this._ridus = value;
 		this.render();
 	}
@@ -27,8 +28,8 @@ export class Cursor {
 		private layers: Layer[],
 		private _curPos: Vec2D = { x: 0, y: 0 },
 		private _lastPos: Vec2D = { x: 0, y: 0 },
-		private _ridus: number = 8,
-		public cursorLineWith: number = 1
+		private _ridus: number = 2,
+		public cursorLineWith: number = 0.1
 	) {}
 
 	render(pos?: Vec2D) {

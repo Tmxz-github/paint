@@ -8,7 +8,7 @@ export class Pen implements Brush {
 	}
 	/** 0 - 1 */
 	public set thickness(value: number) {
-		value = Clamp(value, 0, 1);
+		value = Clamp(value, 0.1, 1);
 		this._thickness = value;
 	}
 	public get color(): string {
@@ -22,7 +22,7 @@ export class Pen implements Brush {
 		return this._size;
 	}
 	public set size(value: number) {
-		value = Clamp(value, 1, 128);
+		value = Clamp(value, 0.1, 128);
 		this.burshCtx.lineWidth = value;
 		this._size = value;
 	}
@@ -37,12 +37,13 @@ export class Pen implements Brush {
 		this.burshCtx.save();
 		if (options) {
 			this.burshCtx.fillStyle = options.color || this.burshCtx.fillStyle;
-			this.size = options.size || this.size;
+			this._size = options.size || this._size;
 		}
 		this.burshCtx.lineWidth = 0;
 
 		this.burshCtx.beginPath();
-		this.burshCtx.arc(point.x, point.y, this.size, 0, Math.PI * 2);
+		this.burshCtx.globalAlpha = this._thickness;
+		this.burshCtx.arc(point.x, point.y, this._size, 0, Math.PI * 2);
 		this.burshCtx.fill();
 
 		this.burshCtx.restore();
