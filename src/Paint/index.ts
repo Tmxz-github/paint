@@ -1,12 +1,13 @@
 import { Cursor } from "./Cursor";
 import { Layer } from "./Layer";
-import { Vec2D } from "./types";
+import { Vec2D, type BBox, type ZoomOptions } from "./types";
 import { KeyListener } from "./Input/key-listener";
 import { Line } from "./Line";
 import { Pen, Eraser } from "./Brushes";
 import { PointerListener } from "./Input/pointer-listener";
 import type { Brush, BrushStyle, BurshTypes } from "./Brushes";
 import { Clamp, createMirror } from "./Utils";
+import { CanvasHistory } from "./CanvasHistory";
 
 interface PaintOption {
 	containerEl: HTMLElement;
@@ -60,11 +61,16 @@ export class Paint {
 	private viewCtx: CanvasRenderingContext2D;
 	/** 同步 currentLayer  */
 	private mirrorCtx: CanvasRenderingContext2D;
+	/** 绘制历史，只记录笔的绘制 */
+	private canvasHistory: CanvasHistory;
+	/** 每一笔绘制后的包围盒 */
+	private lineBBox: BBox = { top: Infinity, bottom: 0, left: Infinity, right: 0 };
 	private _scaleValue: number = 1;
 	private scaleStep: number = 0.2;
 	private preScaleValue: number = 1;
 	private cursor: Cursor;
 	private canvasReady: boolean = false;
+	private drawing: boolean = false;
 	/** 放置画布的画板背景色 */
 	private backgroundColor: string = "#f0f0f0";
 	/** 画布背景色 */
@@ -133,6 +139,8 @@ export class Paint {
 
 		this.mirrorCtx = createMirror<typeof this, CanvasRenderingContext2D>(this, ["currentLayer", "vCtx"]);
 
+		this.canvasHistory = new CanvasHistory();
+
 		this.initBrushes();
 		this.brush = this.brushes.get("PEN")!;
 
@@ -178,6 +186,16 @@ export class Paint {
 			this.grabReady = false;
 			this.grabbing = false;
 		});
+		this.keyListener.control().on("z:up", () => {
+			this.canvasHistory.undo();
+			this.renderLayers();
+			this.currentLayer.preCtx.putImageData(this.getImageData(), 0, 0);
+		});
+		this.keyListener.control().on("r:up", () => {
+			this.canvasHistory.redo();
+			this.renderLayers();
+			this.currentLayer.preCtx.putImageData(this.getImageData(), 0, 0);
+		});
 		this.keyListener.on("w:down", this.zoomIn, this);
 		this.keyListener.on("s:down", this.zoomOut, this);
 	}
@@ -195,9 +213,23 @@ export class Paint {
 	}
 	private pointerupEvent(e: HTMLElementEventMap["pointerup"]) {
 		e.preventDefault();
+		if (this.canvasReady && this.drawing) {
+			this.line.endLine();
+
+			this.canvasHistory.commitChange(this.lineBBox, this.currentLayer);
+
+			this.currentLayer.preCtx.putImageData(this.getImageData(), 0, 0);
+			/** 每一笔绘制完后重制包围盒 */
+			this.lineBBox = {
+				top: Infinity,
+				left: Infinity,
+				bottom: 0,
+				right: 0,
+			};
+		}
 		this.canvasReady = false;
+		this.drawing = false;
 		this.grabbing = false;
-		this.line.endLine();
 	}
 	private pointerleaveEvent(e: HTMLElementEventMap["pointerleave"]) {
 		e.preventDefault();
@@ -222,11 +254,20 @@ export class Paint {
 		this.renderLayers();
 
 		this.cursorRender(pointerOffsetPos);
+
+		const div = document.querySelector("#pos")!;
+		div.innerHTML = `${this.cursor.curPos.x}-${this.cursor.curPos.y}`;
+
 		if (this.grabbing) {
 			this.grabTo(pointerOffsetPos);
 		}
 		if (this.canvasReady && this.currentLayer.visiable && !this.grabbing) {
+			this.lineBBox.left = Math.floor(Math.min(this.lineBBox.left, this.cursor.curPos.x - this.brush.size));
+			this.lineBBox.right = Math.ceil(Math.max(this.lineBBox.right, this.cursor.curPos.x + this.brush.size));
+			this.lineBBox.top = Math.floor(Math.min(this.lineBBox.top, this.cursor.curPos.y - this.brush.size));
+			this.lineBBox.bottom = Math.ceil(Math.max(this.lineBBox.bottom, this.cursor.curPos.y + this.brush.size));
 			this.draw(this.cursor.curPos);
+			this.drawing = true;
 		}
 	}
 	private pointercancelEvent(e: HTMLElementEventMap["pointercancel"]) {
@@ -238,8 +279,16 @@ export class Paint {
 	private wheelEvent(e: WheelEvent) {
 		e.preventDefault();
 		e.deltaY < 0
-			? this.zoomIn({ x: e.offsetX, y: e.offsetY }, this.scaleStep * this.scaleValue)
-			: this.zoomOut({ x: e.offsetX, y: e.offsetY }, this.scaleStep * this.scaleValue);
+			? this.zoomIn({
+					scaleStep: this.scaleStep * this.scaleValue,
+					center: { x: e.offsetX, y: e.offsetY },
+					smooth: true,
+			  })
+			: this.zoomOut({
+					scaleStep: this.scaleStep * this.scaleValue,
+					center: { x: e.offsetX, y: e.offsetY },
+					smooth: true,
+			  });
 	}
 
 	/** 渲染放置画布的画板 */
@@ -262,7 +311,7 @@ export class Paint {
 		if (sw === undefined) sw = this.canvasElement.width;
 		if (sh === undefined) sh = this.canvasElement.height;
 		if (settings === undefined) settings = {};
-		return this.viewCtx.getImageData(sx, sy, sw, sh, settings);
+		return this.mirrorCtx.getImageData(sx, sy, sw, sh, settings);
 	}
 
 	public swtichBursh(type: BurshTypes) {
@@ -371,18 +420,32 @@ export class Paint {
 		this.line.lineTo(pos);
 	}
 
-	public zoomIn(center?: Vec2D, scaleStep: number = 0.1) {
+	public zoomIn(options: ZoomOptions = {}) {
+		let { center, scaleStep, smooth } = options;
 		if (!center) {
 			center = {
 				x: this.canvasElement.width / 2,
 				y: this.canvasElement.height / 2,
 			};
 		}
+		if (!scaleStep) {
+			// === 0
+			scaleStep = 0.1;
+		}
+		if (!smooth) {
+			this.scaleValue += scaleStep;
+			if (this.scaleValue === this.preScaleValue) {
+				return;
+			}
+
+			this.zoom(this.scaleValue, Math.abs(this.scaleValue - this.preScaleValue), center);
+			return;
+		}
 		let i = 0;
 		const frame = () => {
 			if (i >= 10) return;
 			this.scaleValue += scaleStep / 5;
-			if (this.scaleValue ===  this.preScaleValue) {
+			if (this.scaleValue === this.preScaleValue) {
 				return;
 			}
 
@@ -393,18 +456,32 @@ export class Paint {
 		requestAnimationFrame(frame);
 	}
 
-	public zoomOut(center?: Vec2D, scaleStep: number = 0.1) {
+	public zoomOut(options: ZoomOptions = {}) {
+		let { center, scaleStep, smooth } = options;
 		if (!center) {
 			center = {
 				x: this.canvasElement.width / 2,
 				y: this.canvasElement.height / 2,
 			};
 		}
+		if (!scaleStep) {
+			// === 0
+			scaleStep = 0.1;
+		}
+		if (!smooth) {
+			this.scaleValue -= scaleStep;
+			if (this.scaleValue === this.preScaleValue) {
+				return;
+			}
+
+			this.zoom(this.scaleValue, Math.abs(this.scaleValue - this.preScaleValue), center);
+			return;
+		}
 		let i = 0;
 		const frame = () => {
 			if (i >= 6) return;
 			this.scaleValue -= scaleStep / 10;
-			if (this.scaleValue ===  this.preScaleValue) {
+			if (this.scaleValue === this.preScaleValue) {
 				return;
 			}
 

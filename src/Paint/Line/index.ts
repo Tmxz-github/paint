@@ -1,7 +1,7 @@
 import type { Brush } from "../Brushes";
 import { Pen } from "../Brushes/Pen";
 import { Vec2D, type DirPoint } from "../types";
-import { Clamp, easeOutDecay, Mix } from "../Utils";
+import { Clamp, deepClone, easeOutDecay, Mix } from "../Utils";
 import { genBezierPoints } from "../Utils/line";
 import { PointsLine } from "./PointsLine";
 
@@ -53,7 +53,7 @@ export class Line {
 		pointM2.dir = Vec2D.Normalize(Vec2D.Sub(pointM1, pointM3));
 		if (isNaN(pointM2.dir.x) || isNaN(pointM2.dir.y)) {
 			//when xy -3 == -1
-			pointM2.dir = JSON.parse(JSON.stringify(pointM3.dir));
+			pointM2.dir = deepClone(pointM3.dir);
 		}
 		this.bezierPoints = genBezierPoints(
 			this.originPoints[this.originPoints.length - 3],

@@ -3,6 +3,19 @@ export interface Vec2D {
 	y: number;
 }
 
+export interface BBox {
+	top: number;
+	bottom: number;
+	left: number;
+	right: number;
+}
+
+export interface ZoomOptions {
+	center?: Vec2D;
+	scaleStep?: number;
+	smooth?: boolean;
+}
+
 export class Vec2D {
 	x = 0;
 	y = 0;

@@ -31,6 +31,7 @@ const setLayerVisiable = (v: boolean, i: number) => {
 
 <template>
 	<div>
+		<div id="pos"></div>
 		<button @click="paint?.clearCurLayer">清空</button>
 		<button @click="paint?.addNewLayer">添加</button>
 		<button @click="paint?.swtichBursh('PEN')">笔</button>

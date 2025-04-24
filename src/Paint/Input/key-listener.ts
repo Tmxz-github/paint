@@ -170,7 +170,7 @@ interface afterAltShift {
 }
 
 interface returnOn {
-	on: (key: KeyboardKey, cb: () => void, env: object) => void;
+	on: (key: KeyboardKey, cb: () => void, env?: object) => void;
 }
 
 export class KeyListener {
@@ -323,7 +323,7 @@ export class KeyListener {
 
 	on(key: KeyboardKey, cb: () => void, env?: object) {
 		key = key.toLowerCase() as KeyboardKey;
-		this.keyHandler(key, cb.bind(env));
+		this.keyHandler(key, env ? cb.bind(env) : cb);
 	}
 
 	offAll(key: KeyboardKey) {

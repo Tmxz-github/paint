@@ -39,21 +39,6 @@ export class Eraser implements Brush {
 		this.burshCtx.globalAlpha = this._thickness;
 		this.burshCtx.arc(point.x, point.y, this._size, 0, Math.PI * 2);
 		this.burshCtx.fill();
-		// this.burshCtx.clip();
-		// const left = Math.floor(point.x - this._size);
-		// const top = Math.floor(point.y - this._size);
-		// const size = this._size * 2;
-		// const imageData = this.burshCtx.getImageData(left, top, size, size);
-
-		// for (let i = 0; i < imageData.data.length; i += 4) {
-		// 	if (imageData.data[i + 3] <= 0.1) {
-		// 		imageData.data[i + 3] = 0;
-		// 		continue;
-		// 	}
-		// 	imageData.data[i + 3] = imageData.data[i + 3] * (1 - this._thickness);
-		// }
-
-		// this.burshCtx.putImageData(imageData, left, top);
 
 		this.burshCtx.restore();
 	}
