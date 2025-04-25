@@ -4,8 +4,8 @@ interface LayerOption {
 }
 
 export class Layer {
-	private preCanvas: HTMLCanvasElement;
-	public preCtx: CanvasRenderingContext2D;
+	public readonly preCanvas: HTMLCanvasElement;
+	public readonly preCtx: CanvasRenderingContext2D;
 	public visiable: boolean = true;
 	public readonly vCanvas: HTMLCanvasElement;
 	public readonly vCtx: CanvasRenderingContext2D;

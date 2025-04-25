@@ -6,7 +6,7 @@ import { Line } from "./Line";
 import { Pen, Eraser } from "./Brushes";
 import { PointerListener } from "./Input/pointer-listener";
 import type { Brush, BrushStyle, BurshTypes } from "./Brushes";
-import { Clamp, createMirror } from "./Utils";
+import { CircleClamp, Clamp, createMirror } from "./Utils";
 import { CanvasHistory } from "./CanvasHistory";
 
 interface PaintOption {
@@ -54,10 +54,18 @@ export class Paint {
 		this._grabbing = value;
 	}
 
+	public get rotateDegree() {
+		return this._rotateDegree;
+	}
+	public set rotateDegree(value) {
+		this._rotateRadian = (value * Math.PI) / 180;
+		this._rotateDegree = value;
+	}
+
 	private containerEl: HTMLElement;
 	/** canvas html 元素 */
 	private canvasElement: HTMLCanvasElement;
-	/** 视窗绘制上下文 */
+	/** 视窗绘制上下文，只负责最终渲染，所有绘制应先在其余离线 canvas 上绘制后再合并绘制到 viewCtx 上 */
 	private viewCtx: CanvasRenderingContext2D;
 	/** 同步 currentLayer  */
 	private mirrorCtx: CanvasRenderingContext2D;
@@ -81,6 +89,8 @@ export class Paint {
 	private canvasOffset: Vec2D = new Vec2D();
 	private minScaleValue: number = 0.1;
 	private maxScaleValue: number = 64;
+	private _rotateDegree = 0;
+	private _rotateRadian = 0;
 	/**
 	 * todo
 	 * 页面加载时如果光标在元素内则需要动一下 cursor 才能渲染
@@ -151,6 +161,8 @@ export class Paint {
 		this.cursor = new Cursor(this.viewCtx, this.layers);
 
 		this.eventBind();
+
+		this.applyTransform(this._rotateDegree, this._scaleValue, this.canvasOffset);
 	}
 
 	private initBrushes() {
@@ -256,7 +268,7 @@ export class Paint {
 		this.cursorRender(pointerOffsetPos);
 
 		const div = document.querySelector("#pos")!;
-		div.innerHTML = `${this.cursor.curPos.x}-${this.cursor.curPos.y}`;
+		div.innerHTML = `${this.cursor.curPos.x}:::${this.cursor.curPos.y}`;
 
 		if (this.grabbing) {
 			this.grabTo(pointerOffsetPos);
@@ -280,12 +292,12 @@ export class Paint {
 		e.preventDefault();
 		e.deltaY < 0
 			? this.zoomIn({
-					scaleStep: this.scaleStep * this.scaleValue,
+					scaleStep: this.scaleStep * this._scaleValue,
 					center: { x: e.offsetX, y: e.offsetY },
 					smooth: true,
 			  })
 			: this.zoomOut({
-					scaleStep: this.scaleStep * this.scaleValue,
+					scaleStep: this.scaleStep * this._scaleValue,
 					center: { x: e.offsetX, y: e.offsetY },
 					smooth: true,
 			  });
@@ -368,6 +380,7 @@ export class Paint {
 	}
 
 	public renderLayers() {
+		// todo 局部刷新
 		this.renderBackground();
 		this.clearView();
 		for (const layer of this.layers) {
@@ -390,12 +403,17 @@ export class Paint {
 	 */
 	public cursorRender(pos: Vec2D) {
 		if (!this.grabReady && !this.grabbing) {
+			const t = this.viewCtx.getTransform();
+			const inverse = t.inverse();
+
+			const canvasX = inverse.a * pos.x + inverse.c * pos.y + inverse.e;
+			const canvasY = inverse.b * pos.x + inverse.d * pos.y + inverse.f;
+
 			this.cursor.render({
-				x: (pos.x - this.canvasOffset.x) / this.scaleValue,
-				y: (pos.y - this.canvasOffset.y) / this.scaleValue,
+				x: canvasX,
+				y: canvasY,
 			});
 		} else {
-			// todo
 			this.renderLayers();
 		}
 	}
@@ -406,11 +424,26 @@ export class Paint {
 	public grabTo(pos: Vec2D) {
 		const offsetX = pos.x - this.grabStartPos.x;
 		const offsetY = pos.y - this.grabStartPos.y;
-		this.canvasOffset.x += offsetX;
-		this.canvasOffset.y += offsetY;
-		this.viewCtx.setTransform(this.scaleValue, 0, 0, this.scaleValue, this.canvasOffset.x, this.canvasOffset.y);
+
+		const cos = Math.cos(this._rotateRadian);
+		const sin = Math.sin(this._rotateRadian);
+
+		const rotatedOffsetX = offsetX * cos - offsetY * sin;
+		const rotatedOffsetY = offsetX * sin + offsetY * cos;
+
+		this.canvasOffset.x += rotatedOffsetX;
+		this.canvasOffset.y += rotatedOffsetY;
+		
+		this.applyTransform(this._rotateDegree, this._scaleValue, this.canvasOffset);
 		this.renderLayers();
 		this.grabStartPos = pos;
+	}
+
+	rotateTo(degree: number) {
+		degree = CircleClamp(degree, -360, 360);
+		this._rotateDegree = degree;
+		this.applyTransform(this._rotateDegree, this._scaleValue, this.canvasOffset);
+		this.renderLayers();
 	}
 
 	/**
@@ -433,23 +466,23 @@ export class Paint {
 			scaleStep = 0.1;
 		}
 		if (!smooth) {
-			this.scaleValue += scaleStep;
-			if (this.scaleValue === this.preScaleValue) {
+			this._scaleValue += scaleStep;
+			if (this._scaleValue === this.preScaleValue) {
 				return;
 			}
 
-			this.zoom(this.scaleValue, Math.abs(this.scaleValue - this.preScaleValue), center);
+			this.zoom(this._scaleValue, Math.abs(this._scaleValue - this.preScaleValue), center);
 			return;
 		}
 		let i = 0;
 		const frame = () => {
 			if (i >= 10) return;
-			this.scaleValue += scaleStep / 5;
-			if (this.scaleValue === this.preScaleValue) {
+			this._scaleValue += scaleStep! / 5;
+			if (this._scaleValue === this.preScaleValue) {
 				return;
 			}
 
-			this.zoom(this.scaleValue, Math.abs(this.scaleValue - this.preScaleValue), center);
+			this.zoom(this._scaleValue, Math.abs(this._scaleValue - this.preScaleValue), center);
 			i += 1;
 			requestAnimationFrame(frame);
 		};
@@ -469,23 +502,23 @@ export class Paint {
 			scaleStep = 0.1;
 		}
 		if (!smooth) {
-			this.scaleValue -= scaleStep;
-			if (this.scaleValue === this.preScaleValue) {
+			this._scaleValue -= scaleStep;
+			if (this._scaleValue === this.preScaleValue) {
 				return;
 			}
 
-			this.zoom(this.scaleValue, Math.abs(this.scaleValue - this.preScaleValue), center);
+			this.zoom(this._scaleValue, Math.abs(this._scaleValue - this.preScaleValue), center);
 			return;
 		}
 		let i = 0;
 		const frame = () => {
 			if (i >= 6) return;
-			this.scaleValue -= scaleStep / 10;
-			if (this.scaleValue === this.preScaleValue) {
+			this._scaleValue -= scaleStep! / 10;
+			if (this._scaleValue === this.preScaleValue) {
 				return;
 			}
 
-			this.zoom(this.scaleValue, Math.abs(this.scaleValue - this.preScaleValue), center);
+			this.zoom(this._scaleValue, Math.abs(this._scaleValue - this.preScaleValue), center);
 			i += 1;
 			requestAnimationFrame(frame);
 		};
@@ -510,10 +543,37 @@ export class Paint {
 		this.canvasOffset.x += scale > this.preScaleValue ? -deltaX : deltaX;
 		this.canvasOffset.y += scale > this.preScaleValue ? -deltaY : deltaY;
 
-		this.viewCtx.setTransform(scale, 0, 0, scale, this.canvasOffset.x, this.canvasOffset.y);
+		this.applyTransform(this._rotateDegree, scale, this.canvasOffset);
 		this.preScaleValue = scale;
 		this.renderLayers();
 		if (!this.cursorIn) return;
 		this.cursor.render();
+	}
+
+	/**
+	 *
+	 * @param rotate 角度
+	 * @param scale 放缩倍率
+	 * @param offset 偏移量
+	 */
+	applyTransform(rotate: number, scale: number, offset: Vec2D) {
+		const center = {
+			x: this.canvasElement.width / 2,
+			y: this.canvasElement.height / 2,
+		};
+		const rad = (rotate * Math.PI) / 180;
+		const cos = Math.cos(rad);
+		const sin = Math.sin(rad);
+
+		const a = scale * cos;
+		const b = scale * sin;
+		const c = -scale * sin;
+		const d = scale * cos;
+		const dx = (offset.x - center.x) / scale;
+		const dy = (offset.y - center.y) / scale;
+		const e = center.x + dx * a + dy * c;
+		const f = center.y + dx * b + dy * d;
+
+		this.viewCtx.setTransform(a, b, c, d, e, f);
 	}
 }

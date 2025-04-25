@@ -8,6 +8,11 @@ export const Clamp = (num: number, min: number, max: number): number => {
 	return num < min ? min : num > max ? max : num;
 };
 
+export const CircleClamp = (num: number, min: number, max: number): number => {
+	const range = max - min;
+	return ((((num - min) % range) + range) % range) + min;
+};
+
 export const easeOutDecay = (x: number): number => {
 	const startY = 32;
 	const endY = 4;

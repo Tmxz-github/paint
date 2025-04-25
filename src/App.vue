@@ -26,52 +26,67 @@ const setLayerVisiable = (v: boolean, i: number) => {
 	if (!paint.value) return;
 	paint.value.setLayerInfo(v, i);
 };
-
 </script>
 
 <template>
 	<div>
 		<div id="pos"></div>
-		<button @click="paint?.clearCurLayer">清空</button>
-		<button @click="paint?.addNewLayer">添加</button>
-		<button @click="paint?.swtichBursh('PEN')">笔</button>
-		<button @click="paint?.swtichBursh('ERASER')">橡皮</button>
-		<button
-			@click="
-				paint?.setBrushStyle({
-					size: paint.getBrushStyle().size + 1,
-				})
-			"
-		>
-			粗线
-		</button>
-		<button
-			@click="
-				paint?.setBrushStyle({
-					size: paint.getBrushStyle().size - 1,
-				})
-			"
-		>
-			细线
-		</button>
-		<button
-			@click="
-				paint?.setBrushStyle({
-					thickness: paint.getBrushStyle().thickness + 0.1,
-				})
-			"
-		>
-			加深
-		</button>
-		<button
-			@click="
-				paint?.setBrushStyle({
-					thickness: paint.getBrushStyle().thickness - 0.1,
-				})
-			"
-		>
-			变浅
-		</button>
+		<div>
+			<button @click="paint?.clearCurLayer">清空</button>
+			<button @click="paint?.addNewLayer">添加</button>
+			<button @click="paint?.swtichBursh('PEN')">笔</button>
+			<button @click="paint?.swtichBursh('ERASER')">橡皮</button>
+			<button
+				@click="
+					paint?.setBrushStyle({
+						size: paint.getBrushStyle().size + 1,
+					})
+				"
+			>
+				粗线
+			</button>
+			<button
+				@click="
+					paint?.setBrushStyle({
+						size: paint.getBrushStyle().size - 1,
+					})
+				"
+			>
+				细线
+			</button>
+			<button
+				@click="
+					paint?.setBrushStyle({
+						thickness: paint.getBrushStyle().thickness + 0.1,
+					})
+				"
+			>
+				加深
+			</button>
+			<button
+				@click="
+					paint?.setBrushStyle({
+						thickness: paint.getBrushStyle().thickness - 0.1,
+					})
+				"
+			>
+				变浅
+			</button>
+			<button
+				@click="
+					paint?.rotateTo(paint.rotateDegree - 5)
+				"
+			>
+				左转
+			</button>
+			<button
+				@click="
+					paint?.rotateTo(paint.rotateDegree + 5)
+				"
+			>
+				右转
+			</button>
+		</div>
 		<div
 			id="canvas"
 			style="border: 1px solid black"
