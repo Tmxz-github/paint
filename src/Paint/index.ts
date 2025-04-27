@@ -1,19 +1,22 @@
 import { Cursor } from "./Cursor";
 import { Layer } from "./Layer";
-import { Vec2D, type BBox, type ZoomOptions } from "./types";
+import { BBox, Vec2D, type ZoomOptions, type PaintState } from "./types";
 import { KeyListener } from "./Input/key-listener";
 import { Line } from "./Line";
 import { Pen, Eraser } from "./Brushes";
 import { PointerListener } from "./Input/pointer-listener";
 import type { Brush, BrushStyle, BurshTypes } from "./Brushes";
-import { CircleClamp, Clamp, createMirror } from "./Utils";
+import { CircleClamp, Clamp, createMirror, deepClone } from "./Utils";
 import { CanvasHistory } from "./CanvasHistory";
+import { Lasso } from "./Brushes/Lasso";
 
 interface PaintOption {
 	containerEl: HTMLElement;
 	width?: number;
 	height?: number;
 }
+
+const LASSO_LAYER_INDEX = 0;
 
 export class Paint {
 	public get scaleValue(): number {
@@ -96,14 +99,27 @@ export class Paint {
 	 * 页面加载时如果光标在元素内则需要动一下 cursor 才能渲染
 	 */
 	private cursorIn: boolean = false;
+	/** 光标在 canvas 元素上的坐标 */
+	private pointerPos: Vec2D = new Vec2D();
 	private _grabReady: boolean = false;
 	private _grabbing: boolean = false;
 	private grabStartPos: Vec2D = new Vec2D();
+	private clipGrabStartPos: Vec2D = new Vec2D();
 	private brush: Brush;
 	private mirrorBursh: Brush;
 	private readonly line: Line;
 	private readonly brushes: Map<BurshTypes, Brush> = new Map();
 	private readonly pointerListener: PointerListener;
+	private state: PaintState = "DRAW";
+	private clipStarted: boolean = false;
+	private backLayers: Layer[] = [];
+	private clipedArea: {
+		BBox: BBox;
+		imageData: ImageData;
+	} = {
+		BBox: new BBox(),
+		imageData: new ImageData(1, 1),
+	};
 
 	/** 处理键盘绑定 */
 	public readonly keyListener: KeyListener = KeyListener.Instance;
@@ -140,6 +156,8 @@ export class Paint {
 		}
 		this.viewCtx.imageSmoothingEnabled = false;
 
+		this.initBackLayers();
+
 		const initLayer = new Layer({
 			width: this.canvasElement.width,
 			height: this.canvasElement.height,
@@ -171,6 +189,15 @@ export class Paint {
 
 		const eraser = new Eraser(this.mirrorCtx, 2, 0.5);
 		this.brushes.set("ERASER", eraser);
+
+		const lasso = new Lasso(this.backLayers[LASSO_LAYER_INDEX].vCtx as CanvasRenderingContext2D);
+		this.brushes.set("LASSO", lasso);
+	}
+
+	private initBackLayers() {
+		const lassoLayer = new Layer({ width: this.width, height: this.height });
+
+		this.backLayers[LASSO_LAYER_INDEX] = lassoLayer;
 	}
 
 	private eventBind() {
@@ -210,6 +237,14 @@ export class Paint {
 		});
 		this.keyListener.on("w:down", this.zoomIn, this);
 		this.keyListener.on("s:down", this.zoomOut, this);
+		this.keyListener.on("Enter:up", () => {
+			if (this.state === "CLIP") {
+				this.state = "CLIPPING";
+				this.clipStarted = true;
+			} else if (this.state === "CLIPPING") {
+				this.state = "CLIP";
+			}
+		});
 	}
 
 	private pointerdownEvent(e: HTMLElementEventMap["pointerdown"]) {
@@ -222,9 +257,26 @@ export class Paint {
 			x: e.offsetX,
 			y: e.offsetY,
 		};
+		if (this.state === "CLIP") {
+			(this.brush as Lasso).startPoint = deepClone(this.cursor.curPos);
+		}
+		if (this.state === "CLIPPING") {
+			this.clipGrabStartPos = {
+				x: e.offsetX,
+				y: e.offsetY,
+			};
+		}
 	}
 	private pointerupEvent(e: HTMLElementEventMap["pointerup"]) {
 		e.preventDefault();
+		this.pointerPos = {
+			x: e.offsetX,
+			y: e.offsetY,
+		};
+		if (this.state === "CLIP") {
+			this.backLayers[LASSO_LAYER_INDEX].vCtx.clearRect(0, 0, this.width, this.height);
+			(this.brush as Lasso).drawDot(this.cursor.curPos);
+		}
 		if (this.canvasReady && this.drawing) {
 			this.line.endLine();
 
@@ -242,9 +294,14 @@ export class Paint {
 		this.canvasReady = false;
 		this.drawing = false;
 		this.grabbing = false;
+		this.renderLayers();
 	}
 	private pointerleaveEvent(e: HTMLElementEventMap["pointerleave"]) {
 		e.preventDefault();
+		this.pointerPos = {
+			x: e.offsetX,
+			y: e.offsetY,
+		};
 		this.canvasReady = false;
 		this.cursorIn = false;
 		this.line.endLine();
@@ -252,26 +309,70 @@ export class Paint {
 	}
 	private pointerenterEvent(e: HTMLElementEventMap["pointerenter"]) {
 		e.preventDefault();
-		this.containerEl.focus();
-		this.cursorIn = true;
-	}
-	private pointermoveEvent(e: HTMLElementEventMap["pointermove"]) {
-		e.preventDefault();
-		if (e.movementX === 0 && e.movementY === 0) return;
-		const pointerOffsetPos = {
+		this.pointerPos = {
 			x: e.offsetX,
 			y: e.offsetY,
 		};
+		this.containerEl.focus();
+		this.cursorIn = true;
+		this.renderLayers();
+	}
+	private pointermoveEvent(e: HTMLElementEventMap["pointermove"]) {
+		e.preventDefault();
+		this.pointerPos = {
+			x: e.offsetX,
+			y: e.offsetY,
+		};
+		if (e.movementX === 0 && e.movementY === 0) return;
+
 		// todo 每次移动都重新绘制图层太过消耗性能
 		this.renderLayers();
 
-		this.cursorRender(pointerOffsetPos);
+		this.cursorRender(this.pointerPos);
 
 		const div = document.querySelector("#pos")!;
 		div.innerHTML = `${this.cursor.curPos.x}:::${this.cursor.curPos.y}`;
 
 		if (this.grabbing) {
-			this.grabTo(pointerOffsetPos);
+			this.grabTo(this.pointerPos);
+		}
+		if (this.canvasReady && this.currentLayer.visiable && !this.grabbing && this.state === "CLIP") {
+			this.brush.drawDot(this.cursor.curPos);
+			return;
+		}
+		if (this.canvasReady && this.currentLayer.visiable && !this.grabbing && this.state === "CLIPPING") {
+			if (this.inBBox(this.cursor.curPos, (this.brush as Lasso).BBox)) {
+				const BBox = (this.brush as Lasso).BBox;
+				if (this.clipStarted) {
+					this.clipedArea.BBox = BBox;
+					this.clipedArea.imageData = this.currentLayer.vCtx.getImageData(
+						BBox.left,
+						BBox.top,
+						BBox.right - BBox.left,
+						BBox.bottom - BBox.top
+					);
+					this.currentLayer.vCtx.clearRect(BBox.left, BBox.top, BBox.right - BBox.left, BBox.bottom - BBox.top);
+				}
+				const offset = Vec2D.Sub(
+					{
+						x: e.offsetX,
+						y: e.offsetY,
+					},
+					this.clipGrabStartPos
+				);
+
+				(this.brush as Lasso).startPoint = Vec2D.Add((this.brush as Lasso).startPoint, offset);
+				this.brush.drawDot(Vec2D.Add((this.brush as Lasso).preEndpoint, offset));
+				this.grabContent((this.brush as Lasso).BBox, offset);
+
+				this.clipGrabStartPos = {
+					x: e.offsetX,
+					y: e.offsetY,
+				};
+
+				this.clipStarted = false;
+			}
+			return;
 		}
 		if (this.canvasReady && this.currentLayer.visiable && !this.grabbing) {
 			this.lineBBox.left = Math.floor(Math.min(this.lineBBox.left, this.cursor.curPos.x - this.brush.size));
@@ -284,12 +385,24 @@ export class Paint {
 	}
 	private pointercancelEvent(e: HTMLElementEventMap["pointercancel"]) {
 		e.preventDefault();
+		this.pointerPos = {
+			x: e.offsetX,
+			y: e.offsetY,
+		};
 	}
 	private contextmenuEvent(e: HTMLElementEventMap["contextmenu"]) {
 		e.preventDefault();
+		this.pointerPos = {
+			x: e.offsetX,
+			y: e.offsetY,
+		};
 	}
 	private wheelEvent(e: WheelEvent) {
 		e.preventDefault();
+		this.pointerPos = {
+			x: e.offsetX,
+			y: e.offsetY,
+		};
 		e.deltaY < 0
 			? this.zoomIn({
 					scaleStep: this.scaleStep * this._scaleValue,
@@ -317,6 +430,16 @@ export class Paint {
 		return pos.x > this.canvasElement.width || pos.x < 0 || pos.y > this.canvasElement.height || pos.y < 0;
 	}
 
+	private grabContent(BBox: BBox, offset: Vec2D) {
+		const lassoCtx = this.backLayers[LASSO_LAYER_INDEX].vCtx;
+		const targetPos = Vec2D.Add({ x: BBox.left, y: BBox.top }, offset);
+		lassoCtx.putImageData(this.clipedArea.imageData, targetPos.x, targetPos.y);
+	}
+
+	private inBBox(pos: Vec2D, BBox: BBox) {
+		return pos.x > BBox.left && pos.x < BBox.right && pos.y > BBox.top && pos.y < BBox.bottom;
+	}
+
 	private getImageData(sx?: number, sy?: number, sw?: number, sh?: number, settings?: ImageDataSettings) {
 		if (sx === undefined) sx = 0;
 		if (sy === undefined) sy = 0;
@@ -327,6 +450,13 @@ export class Paint {
 	}
 
 	public swtichBursh(type: BurshTypes) {
+		if (type === "LASSO") {
+			this.state = "CLIP";
+		} else {
+			this.backLayers[LASSO_LAYER_INDEX].vCtx.clearRect(0, 0, this.width, this.height);
+			this.state = "DRAW";
+			this.renderLayers();
+		}
 		this.brush = this.brushes.get(type) || this.brushes.get("PEN")!;
 	}
 
@@ -350,20 +480,20 @@ export class Paint {
 	}
 
 	public clearCurLayer() {
-		this.currentLayer.vCtx.clearRect(0, 0, this.currentLayer.vCanvas.width, this.currentLayer.vCanvas.height);
+		this.currentLayer.vCtx.clearRect(0, 0, this.currentLayer.vCtx.canvas.width, this.currentLayer.vCtx.canvas.height);
 		this.renderLayers();
 	}
 
 	public clearLayer(i: number) {
 		const layer = this.layers[i];
 		if (!layer) return;
-		layer.vCtx.clearRect(0, 0, layer.vCanvas.width, layer.vCanvas.height);
+		layer.vCtx.clearRect(0, 0, layer.vCtx.canvas.width, layer.vCtx.canvas.height);
 		this.renderLayers();
 	}
 
 	public clearAll() {
 		for (const layer of this.layers) {
-			layer.vCtx.clearRect(0, 0, layer.vCanvas.width, layer.vCanvas.height);
+			layer.vCtx.clearRect(0, 0, layer.vCtx.canvas.width, layer.vCtx.canvas.height);
 		}
 		this.clearView();
 	}
@@ -385,9 +515,11 @@ export class Paint {
 		this.clearView();
 		for (const layer of this.layers) {
 			if (layer.visiable) {
-				this.viewCtx.drawImage(layer.vCanvas, 0, 0);
+				this.viewCtx.drawImage(layer.vCtx.canvas, 0, 0);
 			}
 		}
+		// this.viewCtx.putImageData(this.clipedArea.imageData, 100, 100);
+		this.viewCtx.drawImage(this.backLayers[LASSO_LAYER_INDEX].vCtx.canvas, 0, 0);
 	}
 
 	/** 设置图层信息，目前只设置是否可见 */
@@ -413,8 +545,6 @@ export class Paint {
 				x: canvasX,
 				y: canvasY,
 			});
-		} else {
-			this.renderLayers();
 		}
 	}
 
@@ -433,7 +563,7 @@ export class Paint {
 
 		this.canvasOffset.x += rotatedOffsetX;
 		this.canvasOffset.y += rotatedOffsetY;
-		
+
 		this.applyTransform(this._rotateDegree, this._scaleValue, this.canvasOffset);
 		this.renderLayers();
 		this.grabStartPos = pos;
@@ -547,7 +677,7 @@ export class Paint {
 		this.preScaleValue = scale;
 		this.renderLayers();
 		if (!this.cursorIn) return;
-		this.cursor.render();
+		this.cursorRender(this.pointerPos);
 	}
 
 	/**

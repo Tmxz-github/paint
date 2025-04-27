@@ -36,6 +36,7 @@ const setLayerVisiable = (v: boolean, i: number) => {
 			<button @click="paint?.addNewLayer">添加</button>
 			<button @click="paint?.swtichBursh('PEN')">笔</button>
 			<button @click="paint?.swtichBursh('ERASER')">橡皮</button>
+			<button @click="paint?.swtichBursh('LASSO')">套索</button>
 			<button
 				@click="
 					paint?.setBrushStyle({
