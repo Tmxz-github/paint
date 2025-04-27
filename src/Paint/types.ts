@@ -16,6 +16,14 @@ export interface ZoomOptions {
 	smooth?: boolean;
 }
 
+export type PaintState = "DRAW" | "CLIP" | "CLIPPING";
+
+export class BBox {
+	left: number = 0;
+	right: number = 0;
+	top: number = 0;
+	bottom: number = 0;
+}
 export class Vec2D {
 	x = 0;
 	y = 0;
