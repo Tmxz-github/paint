@@ -490,6 +490,7 @@ export class Paint {
 			this.clipped = false;
 		} else {
 			this.backLayers[LASSO_RECT_INDEX].vCtx.clearRect(0, 0, this.width, this.height);
+			this.backLayers[LASSO_LAYER_INDEX].vCtx.clearRect(0, 0, this.width, this.height);
 			if (!this.clipped) {
 				this.putContent(this.clipedArea.BBox);
 			}
