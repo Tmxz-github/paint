@@ -9,6 +9,7 @@ import type { Brush, BrushStyle, BurshTypes } from "./Brushes";
 import { CircleClamp, Clamp, createMirror, deepClone } from "./Utils";
 import { CanvasHistory } from "./CanvasHistory";
 import { Lasso } from "./Brushes/Lasso";
+import { createCanvasContext } from "./Utils/canvas";
 
 interface PaintOption {
 	containerEl: HTMLElement;
@@ -111,7 +112,10 @@ export class Paint {
 	private readonly brushes: Map<BurshTypes, Brush> = new Map();
 	private readonly pointerListener: PointerListener;
 	private state: PaintState = "DRAW";
+	/** 开始修改剪切内容 */
 	private clipStarted: boolean = false;
+	/** 确认修改的剪切内容 */
+	private clipped: boolean = false;
 	private backLayers: Layer[] = [];
 	private clipedArea: {
 		BBox: BBox;
@@ -244,6 +248,8 @@ export class Paint {
 			} else if (this.state === "CLIPPING") {
 				(this.brush as Lasso).drawDot(undefined, false);
 				this.putContent((this.brush as Lasso).BBox);
+				this.canvasHistory.commitChange(this.clipedArea.BBox, this.currentLayer, (this.brush as Lasso).BBox);
+				this.clipped = true;
 				this.state = "CLIP";
 			}
 		});
@@ -442,7 +448,13 @@ export class Paint {
 
 	private putContent(BBox: BBox) {
 		const targetPos = { x: BBox.left, y: BBox.top };
-		this.currentLayer.vCtx.putImageData(this.clipedArea.imageData, targetPos.x, targetPos.y);
+
+		const tmpContext = createCanvasContext(this.clipedArea.imageData);
+		this.currentLayer.vCtx.drawImage(
+			tmpContext.canvas,
+			targetPos.x - 0.5,
+			targetPos.y - 0.5,
+		);
 	}
 
 	private inBBox(pos: Vec2D, BBox: BBox) {
@@ -461,8 +473,12 @@ export class Paint {
 	public swtichBursh(type: BurshTypes) {
 		if (type === "LASSO") {
 			this.state = "CLIP";
+			this.clipped = false;
 		} else {
 			this.backLayers[LASSO_LAYER_INDEX].vCtx.clearRect(0, 0, this.width, this.height);
+			if (!this.clipped) {
+				this.putContent(this.clipedArea.BBox);
+			}
 			this.state = "DRAW";
 			this.renderLayers();
 		}
