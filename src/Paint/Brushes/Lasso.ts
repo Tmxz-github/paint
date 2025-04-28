@@ -1,5 +1,6 @@
 import type { Brush } from ".";
 import { BBox, Vec2D } from "../types";
+import { deepClone } from "../Utils";
 
 export class Lasso implements Brush {
 	public get startPoint(): Vec2D {
@@ -30,8 +31,9 @@ export class Lasso implements Brush {
 			leftTop = point2;
 			rightBottom = point1;
 		}
-
-		this.burshCtx.strokeRect(leftTop.x, leftTop.y, rightBottom.x - leftTop.x, rightBottom.y - leftTop.y);
+		this.burshCtx.beginPath();
+		this.burshCtx.rect(leftTop.x, leftTop.y, rightBottom.x - leftTop.x, rightBottom.y - leftTop.y);
+		this.burshCtx.stroke();
 
 		return {
 			top: leftTop.y,
@@ -41,21 +43,24 @@ export class Lasso implements Brush {
 		};
 	}
 
-	public drawDot(point: Vec2D) {
+	public drawDot(point?: Vec2D, clear: boolean = true) {
 		this.burshCtx.save();
 
 		this.burshCtx.fillStyle = "black";
 		this.burshCtx.lineDashOffset = 0.1;
 
-		this.preEndpoint = {
-			x: point.x,
-			y: point.y,
-		};
-		this.burshCtx.clearRect(0, 0, this.burshCtx.canvas.width, this.burshCtx.canvas.height);
+		if (clear) {
+			this.burshCtx.clearRect(0, 0, this.burshCtx.canvas.width, this.burshCtx.canvas.height);
+		}
+		if (point) {
+			this.preEndpoint = {
+				x: point.x,
+				y: point.y,
+			};
+		}
 		this.preEndpoint.x = Math.floor(this.preEndpoint.x) + 0.5;
 		this.preEndpoint.y = Math.floor(this.preEndpoint.y) + 0.5;
 		this.BBox = this.drawRect(this.startPoint, this.preEndpoint);
-
 		this.burshCtx.restore();
 	}
 }

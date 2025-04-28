@@ -242,6 +242,8 @@ export class Paint {
 				this.state = "CLIPPING";
 				this.clipStarted = true;
 			} else if (this.state === "CLIPPING") {
+				(this.brush as Lasso).drawDot(undefined, false);
+				this.putContent((this.brush as Lasso).BBox);
 				this.state = "CLIP";
 			}
 		});
@@ -274,8 +276,10 @@ export class Paint {
 			y: e.offsetY,
 		};
 		if (this.state === "CLIP") {
-			this.backLayers[LASSO_LAYER_INDEX].vCtx.clearRect(0, 0, this.width, this.height);
 			(this.brush as Lasso).drawDot(this.cursor.curPos);
+		}
+		if (this.state === "CLIPPING") {
+			(this.brush as Lasso).drawDot(undefined, false);
 		}
 		if (this.canvasReady && this.drawing) {
 			this.line.endLine();
@@ -363,7 +367,7 @@ export class Paint {
 
 				(this.brush as Lasso).startPoint = Vec2D.Add((this.brush as Lasso).startPoint, offset);
 				this.brush.drawDot(Vec2D.Add((this.brush as Lasso).preEndpoint, offset));
-				this.grabContent((this.brush as Lasso).BBox, offset);
+				this.grabContent((this.brush as Lasso).BBox);
 
 				this.clipGrabStartPos = {
 					x: e.offsetX,
@@ -430,10 +434,15 @@ export class Paint {
 		return pos.x > this.canvasElement.width || pos.x < 0 || pos.y > this.canvasElement.height || pos.y < 0;
 	}
 
-	private grabContent(BBox: BBox, offset: Vec2D) {
+	private grabContent(BBox: BBox) {
 		const lassoCtx = this.backLayers[LASSO_LAYER_INDEX].vCtx;
-		const targetPos = Vec2D.Add({ x: BBox.left, y: BBox.top }, offset);
+		const targetPos = { x: BBox.left, y: BBox.top };
 		lassoCtx.putImageData(this.clipedArea.imageData, targetPos.x, targetPos.y);
+	}
+
+	private putContent(BBox: BBox) {
+		const targetPos = { x: BBox.left, y: BBox.top };
+		this.currentLayer.vCtx.putImageData(this.clipedArea.imageData, targetPos.x, targetPos.y);
 	}
 
 	private inBBox(pos: Vec2D, BBox: BBox) {
