@@ -1,6 +1,6 @@
 import type { Brush } from ".";
+import { TRANSPARENT } from "../constants";
 import { BBox, Vec2D } from "../types";
-import { deepClone } from "../Utils";
 
 export class Lasso implements Brush {
 	public get startPoint(): Vec2D {
@@ -41,6 +41,76 @@ export class Lasso implements Brush {
 			left: leftTop.x,
 			right: rightBottom.x,
 		};
+	}
+
+	public setMinAABB(imageData: ImageData) {
+		const width = imageData.width;
+		const height = imageData.height;
+
+		let yt = 0;
+		let yb = height - 1;
+		let xl = 0;
+		let xr = width * 4 - 1;
+		const pixelLength = width * 4;
+
+		// top
+		for (let x = 0; x < pixelLength; x += 4) {
+			if (imageData.data[x + 3 + yt * pixelLength] !== TRANSPARENT) {
+				this.BBox.top += yt - 1;
+				break;
+			}
+			if (x === pixelLength - 4) {
+				yt += 1;
+				if (yt >= height) break;
+				x = 0;
+			}
+		}
+
+		// bottom
+		for (let x = 0; x < pixelLength; x += 4) {
+			if (imageData.data[x + 3 + yb * pixelLength] !== TRANSPARENT) {
+				this.BBox.bottom -= height - yb;
+				break;
+			}
+			if (x === pixelLength - 4) {
+				yb -= 1;
+				if (yb < 0) break;
+				x = 0;
+			}
+		}
+
+		// left
+		for (let y = 0; y < height; y += 1) {
+			if (imageData.data[xl + 3 + y * pixelLength] !== TRANSPARENT) {
+				this.BBox.left += xl / 4 - 1;
+				break;
+			}
+			if (y === height - 1) {
+				xl += 4;
+				if (xl >= width) break;
+				y = 0;
+			}
+		}
+
+		// right
+		for (let y = 0; y < height; y += 1) {
+			if (imageData.data[xr + y * pixelLength] !== TRANSPARENT) {
+				this.BBox.right -= width - xr / 4;
+				break;
+			}
+			if (y === height - 1) {
+				xr -= 4;
+				if (xr < 0) break;
+				y = 0;
+			}
+		}
+
+		this.startPoint = {
+			x: this.BBox.left,
+			y: this.BBox.top,
+		};
+
+		this.drawDot({ x: this.BBox.right, y: this.BBox.bottom });
 	}
 
 	public drawDot(point?: Vec2D, clear: boolean = true) {
