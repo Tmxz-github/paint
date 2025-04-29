@@ -174,9 +174,16 @@ interface returnOn {
 }
 
 export class KeyListener {
-	static Instance = new this();
-
-	private constructor() {}
+	constructor(private element: HTMLElement) {
+		this.element.addEventListener("keydown", (e) => {
+			e.preventDefault();
+			this.emit(e.ctrlKey, e.altKey, e.shiftKey, e.key + ":down");
+		});
+		this.element.addEventListener("keyup", (e) => {
+			e.preventDefault();
+			this.emit(e.ctrlKey, e.altKey, e.shiftKey, e.key + ":up");
+		});
+	}
 
 	private evs: Map<string, Function[]> = new Map();
 

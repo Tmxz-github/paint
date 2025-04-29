@@ -1,6 +1,6 @@
 import type { Vec2D } from "../types";
 
-type PointerTypes = "UP" | "DOWN" | "LINE" | "ENTER" | "CONTEXT" | "WHEEL";
+type PointerTypes = "UP" | "DOWN" | "LINE" | "ENTER" | "CONTEXT" | "WHEEL" | "MOVE" | "LEAVE";
 
 interface MyPointerEvent {
 	type: PointerTypes;
@@ -16,7 +16,7 @@ export class PointerListener {
 
 	constructor(private element: HTMLElement) {
 		this.element.addEventListener("pointerdown", (e) => {
-			e.preventDefault();																	
+			e.preventDefault();
 			this.emit({
 				type: "DOWN",
 				pressure: e.pressure | 1,
@@ -28,9 +28,9 @@ export class PointerListener {
 			});
 		});
 		this.element.addEventListener("pointerleave", (e) => {
-			e.preventDefault();																		
+			e.preventDefault();
 			this.emit({
-				type: "UP",
+				type: "LEAVE",
 				pressure: e.pressure | 1,
 				pos: {
 					x: e.offsetX,
@@ -40,7 +40,7 @@ export class PointerListener {
 			});
 		});
 		this.element.addEventListener("contextmenu", (e) => {
-			e.preventDefault();																		
+			e.preventDefault();
 			this.emit({
 				type: "CONTEXT",
 				pressure: 1,
@@ -52,7 +52,7 @@ export class PointerListener {
 			});
 		});
 		this.element.addEventListener("pointerenter", (e) => {
-			e.preventDefault();																		
+			e.preventDefault();
 			this.emit({
 				type: "ENTER",
 				pressure: 1,
@@ -64,9 +64,9 @@ export class PointerListener {
 			});
 		});
 		this.element.addEventListener("pointermove", (e) => {
-			e.preventDefault();																		
+			e.preventDefault();
 			this.emit({
-				type: "UP",
+				type: "MOVE",
 				pressure: e.pressure | 1,
 				pos: {
 					x: e.offsetX,
@@ -76,7 +76,7 @@ export class PointerListener {
 			});
 		});
 		this.element.addEventListener("pointerup", (e) => {
-			e.preventDefault();																		
+			e.preventDefault();
 			this.emit({
 				type: "UP",
 				pressure: 1,
@@ -88,10 +88,22 @@ export class PointerListener {
 			});
 		});
 		this.element.addEventListener("pointercancel", (e) => {
-			e.preventDefault();																		
+			e.preventDefault();
 			this.emit({
 				type: "UP",
 				pressure: e.pressure | 1,
+				pos: {
+					x: e.offsetX,
+					y: e.offsetY,
+				},
+				e,
+			});
+		});
+		this.element.addEventListener("wheel", (e) => {
+			e.preventDefault();
+			this.emit({
+				type: "WHEEL",
+				pressure: 1,
 				pos: {
 					x: e.offsetX,
 					y: e.offsetY,

@@ -143,7 +143,7 @@ export class Paint {
 	};
 
 	/** 处理键盘绑定 */
-	public readonly keyListener: KeyListener = KeyListener.Instance;
+	public readonly keyListener: KeyListener;
 	public readonly width: number = 512;
 	public readonly height: number = 512;
 	public readonly layers: Layer[] = [];
@@ -169,7 +169,8 @@ export class Paint {
 		this.canvasElement.width = this.width;
 		this.canvasElement.height = this.height;
 
-		this.pointerListener = new PointerListener(this.canvasElement);
+		this.pointerListener = new PointerListener(this.containerEl);
+		this.keyListener = new KeyListener(this.containerEl);
 
 		this.viewCtx = this.canvasElement.getContext("2d")!;
 		if (!this.viewCtx) {
@@ -224,21 +225,133 @@ export class Paint {
 	}
 
 	private eventBind() {
-		this.canvasElement.addEventListener("pointerdown", this.pointerdownEvent.bind(this));
-		this.canvasElement.addEventListener("contextmenu", this.contextmenuEvent.bind(this));
-		this.canvasElement.addEventListener("pointerleave", this.pointerleaveEvent.bind(this));
-		this.canvasElement.addEventListener("pointerenter", this.pointerenterEvent.bind(this));
-		this.canvasElement.addEventListener("pointermove", this.pointermoveEvent.bind(this));
-		this.canvasElement.addEventListener("pointerup", this.pointerupEvent.bind(this));
-		this.canvasElement.addEventListener("pointercancel", this.pointercancelEvent.bind(this));
-		this.canvasElement.addEventListener("wheel", this.wheelEvent.bind(this));
-		this.containerEl.addEventListener("keydown", (e) => {
-			e.preventDefault();
-			this.keyListener.emit(e.ctrlKey, e.altKey, e.shiftKey, e.key + ":down");
+		this.pointerListener.on("MOVE", ({ e, pos }) => {
+			this.pointerPos = pos;
+			if (e.movementX === 0 && e.movementY === 0) return;
+
+			this.renderLayers();
+
+			this.cursorRender(this.pointerPos);
+
+			const div = document.querySelector("#pos")!;
+			div.innerHTML = `${this.cursor.curPos.x}:::${this.cursor.curPos.y}`;
+
+			if (this.grabbing) {
+				this.grabTo(this.pointerPos);
+			}
+			if (this.canvasReady && this.currentLayer.visiable && !this.grabbing && this.state === "CLIP") {
+				this.brush.drawDot(this.cursor.curPos);
+				return;
+			}
+			if (this.canvasReady && this.currentLayer.visiable && !this.grabbing && this.state === "CLIPPING") {
+				if (this.inBBox(this.cursor.curPos, (this.brush as Lasso).boundBox)) {
+					const boundBox = (this.brush as Lasso).boundBox;
+					if (this.clipStarted) {
+						this.currentLayer.vCtx.clearRect(
+							boundBox.left,
+							boundBox.top,
+							boundBox.right - boundBox.left,
+							boundBox.bottom - boundBox.top
+						);
+					}
+					const offset = Vec2D.Sub(pos, this.clipGrabStartPos);
+
+					offset.x /= this._scaleValue;
+					offset.y /= this._scaleValue;
+
+					(this.brush as Lasso).startPoint = Vec2D.Add((this.brush as Lasso).startPoint, offset);
+
+					const lassoCtx = this.backLayers[LASSO_LAYER_INDEX].vCtx;
+					lassoCtx.clearRect(
+						boundBox.left,
+						boundBox.top,
+						boundBox.right - boundBox.left,
+						boundBox.bottom - boundBox.top
+					);
+					this.brush.drawDot(Vec2D.Add((this.brush as Lasso).preEndpoint, offset));
+					this.grabContent((this.brush as Lasso).boundBox);
+
+					this.clipGrabStartPos = pos;
+
+					this.clipStarted = false;
+				}
+				return;
+			}
+			if (this.canvasReady && this.currentLayer.visiable && !this.grabbing) {
+				this.lineBBox.left = Math.floor(Math.min(this.lineBBox.left, this.cursor.curPos.x - this.brush.size));
+				this.lineBBox.right = Math.ceil(Math.max(this.lineBBox.right, this.cursor.curPos.x + this.brush.size));
+				this.lineBBox.top = Math.floor(Math.min(this.lineBBox.top, this.cursor.curPos.y - this.brush.size));
+				this.lineBBox.bottom = Math.ceil(Math.max(this.lineBBox.bottom, this.cursor.curPos.y + this.brush.size));
+				this.draw(this.cursor.curPos);
+				this.drawing = true;
+			}
 		});
-		this.containerEl.addEventListener("keyup", (e) => {
-			e.preventDefault();
-			this.keyListener.emit(e.ctrlKey, e.altKey, e.shiftKey, e.key + ":up");
+		this.pointerListener.on("DOWN", ({ pos }) => {
+			this.canvasReady = true;
+			if (this.grabReady) {
+				this.grabbing = true;
+			}
+			this.grabStartPos = pos;
+			if (this.state === "CLIP") {
+				(this.brush as Lasso).startPoint = deepClone(this.cursor.curPos);
+			}
+			if (this.state === "CLIPPING") {
+				this.clipGrabStartPos = pos;
+			}
+		});
+		this.pointerListener.on("UP", ({ pos }) => {
+			this.pointerPos = pos;
+			if (this.state === "CLIP") {
+				(this.brush as Lasso).drawDot(this.cursor.curPos);
+			}
+			if (this.state === "CLIPPING") {
+				(this.brush as Lasso).drawDot(undefined, false);
+			}
+			if (this.canvasReady && this.drawing) {
+				this.line.endLine();
+
+				this.canvasHistory.commitChange(this.lineBBox, this.currentLayer);
+
+				this.currentLayer.preCtx.putImageData(this.getImageData(), 0, 0);
+				/** 每一笔绘制完后重制包围盒 */
+				this.lineBBox = {
+					top: Infinity,
+					left: Infinity,
+					bottom: 0,
+					right: 0,
+				};
+			}
+			this.canvasReady = false;
+			this.drawing = false;
+			this.grabbing = false;
+			this.renderLayers();
+		});
+		this.pointerListener.on("LEAVE", ({ pos }) => {
+			this.pointerPos = pos;
+			this.canvasReady = false;
+			this.cursorIn = false;
+			this.line.endLine();
+			this.renderLayers();
+		});
+		this.pointerListener.on("ENTER", ({ pos }) => {
+			this.pointerPos = pos;
+			this.containerEl.focus();
+			this.cursorIn = true;
+			this.renderLayers();
+		});
+		this.pointerListener.on("WHEEL", ({ e, pos }) => {
+			this.pointerPos = pos;
+			(e as WheelEvent).deltaY < 0
+				? this.zoomIn({
+						scaleStep: this.scaleStep * this._scaleValue,
+						center: { x: e.offsetX, y: e.offsetY },
+						smooth: true,
+				  })
+				: this.zoomOut({
+						scaleStep: this.scaleStep * this._scaleValue,
+						center: { x: e.offsetX, y: e.offsetY },
+						smooth: true,
+				  });
 		});
 
 		this.keyListener.on(" :down", () => {
@@ -287,180 +400,6 @@ export class Paint {
 				this.state = "CLIP";
 			}
 		});
-	}
-
-	private pointerdownEvent(e: HTMLElementEventMap["pointerdown"]) {
-		e.preventDefault();
-		this.canvasReady = true;
-		if (this.grabReady) {
-			this.grabbing = true;
-		}
-		this.grabStartPos = {
-			x: e.offsetX,
-			y: e.offsetY,
-		};
-		if (this.state === "CLIP") {
-			(this.brush as Lasso).startPoint = deepClone(this.cursor.curPos);
-		}
-		if (this.state === "CLIPPING") {
-			this.clipGrabStartPos = {
-				x: e.offsetX,
-				y: e.offsetY,
-			};
-		}
-	}
-	private pointerupEvent(e: HTMLElementEventMap["pointerup"]) {
-		e.preventDefault();
-		this.pointerPos = {
-			x: e.offsetX,
-			y: e.offsetY,
-		};
-		if (this.state === "CLIP") {
-			(this.brush as Lasso).drawDot(this.cursor.curPos);
-		}
-		if (this.state === "CLIPPING") {
-			(this.brush as Lasso).drawDot(undefined, false);
-		}
-		if (this.canvasReady && this.drawing) {
-			this.line.endLine();
-
-			this.canvasHistory.commitChange(this.lineBBox, this.currentLayer);
-
-			this.currentLayer.preCtx.putImageData(this.getImageData(), 0, 0);
-			/** 每一笔绘制完后重制包围盒 */
-			this.lineBBox = {
-				top: Infinity,
-				left: Infinity,
-				bottom: 0,
-				right: 0,
-			};
-		}
-		this.canvasReady = false;
-		this.drawing = false;
-		this.grabbing = false;
-		this.renderLayers();
-	}
-	private pointerleaveEvent(e: HTMLElementEventMap["pointerleave"]) {
-		e.preventDefault();
-		this.pointerPos = {
-			x: e.offsetX,
-			y: e.offsetY,
-		};
-		this.canvasReady = false;
-		this.cursorIn = false;
-		this.line.endLine();
-		this.renderLayers();
-	}
-	private pointerenterEvent(e: HTMLElementEventMap["pointerenter"]) {
-		e.preventDefault();
-		this.pointerPos = {
-			x: e.offsetX,
-			y: e.offsetY,
-		};
-		this.containerEl.focus();
-		this.cursorIn = true;
-		this.renderLayers();
-	}
-	private pointermoveEvent(e: HTMLElementEventMap["pointermove"]) {
-		e.preventDefault();
-		this.pointerPos = {
-			x: e.offsetX,
-			y: e.offsetY,
-		};
-		if (e.movementX === 0 && e.movementY === 0) return;
-
-		this.renderLayers();
-
-		this.cursorRender(this.pointerPos);
-
-		const div = document.querySelector("#pos")!;
-		div.innerHTML = `${this.cursor.curPos.x}:::${this.cursor.curPos.y}`;
-
-		if (this.grabbing) {
-			this.grabTo(this.pointerPos);
-		}
-		if (this.canvasReady && this.currentLayer.visiable && !this.grabbing && this.state === "CLIP") {
-			this.brush.drawDot(this.cursor.curPos);
-			return;
-		}
-		if (this.canvasReady && this.currentLayer.visiable && !this.grabbing && this.state === "CLIPPING") {
-			if (this.inBBox(this.cursor.curPos, (this.brush as Lasso).boundBox)) {
-				const boundBox = (this.brush as Lasso).boundBox;
-				if (this.clipStarted) {
-					this.currentLayer.vCtx.clearRect(
-						boundBox.left,
-						boundBox.top,
-						boundBox.right - boundBox.left,
-						boundBox.bottom - boundBox.top
-					);
-				}
-				const offset = Vec2D.Sub(
-					{
-						x: e.offsetX,
-						y: e.offsetY,
-					},
-					this.clipGrabStartPos
-				);
-
-				offset.x /= this._scaleValue;
-				offset.y /= this._scaleValue;
-
-				(this.brush as Lasso).startPoint = Vec2D.Add((this.brush as Lasso).startPoint, offset);
-
-				const lassoCtx = this.backLayers[LASSO_LAYER_INDEX].vCtx;
-				lassoCtx.clearRect(boundBox.left, boundBox.top, boundBox.right - boundBox.left, boundBox.bottom - boundBox.top);
-				this.brush.drawDot(Vec2D.Add((this.brush as Lasso).preEndpoint, offset));
-				this.grabContent((this.brush as Lasso).boundBox);
-
-				this.clipGrabStartPos = {
-					x: e.offsetX,
-					y: e.offsetY,
-				};
-
-				this.clipStarted = false;
-			}
-			return;
-		}
-		if (this.canvasReady && this.currentLayer.visiable && !this.grabbing) {
-			this.lineBBox.left = Math.floor(Math.min(this.lineBBox.left, this.cursor.curPos.x - this.brush.size));
-			this.lineBBox.right = Math.ceil(Math.max(this.lineBBox.right, this.cursor.curPos.x + this.brush.size));
-			this.lineBBox.top = Math.floor(Math.min(this.lineBBox.top, this.cursor.curPos.y - this.brush.size));
-			this.lineBBox.bottom = Math.ceil(Math.max(this.lineBBox.bottom, this.cursor.curPos.y + this.brush.size));
-			this.draw(this.cursor.curPos);
-			this.drawing = true;
-		}
-	}
-	private pointercancelEvent(e: HTMLElementEventMap["pointercancel"]) {
-		e.preventDefault();
-		this.pointerPos = {
-			x: e.offsetX,
-			y: e.offsetY,
-		};
-	}
-	private contextmenuEvent(e: HTMLElementEventMap["contextmenu"]) {
-		e.preventDefault();
-		this.pointerPos = {
-			x: e.offsetX,
-			y: e.offsetY,
-		};
-	}
-	private wheelEvent(e: WheelEvent) {
-		e.preventDefault();
-		this.pointerPos = {
-			x: e.offsetX,
-			y: e.offsetY,
-		};
-		e.deltaY < 0
-			? this.zoomIn({
-					scaleStep: this.scaleStep * this._scaleValue,
-					center: { x: e.offsetX, y: e.offsetY },
-					smooth: true,
-			  })
-			: this.zoomOut({
-					scaleStep: this.scaleStep * this._scaleValue,
-					center: { x: e.offsetX, y: e.offsetY },
-					smooth: true,
-			  });
 	}
 
 	/** 渲染放置画布的画板 */

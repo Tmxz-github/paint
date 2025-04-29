@@ -16,7 +16,7 @@ export interface ZoomOptions {
 	smooth?: boolean;
 }
 
-export type PaintState = "DRAW" | "CLIP" | "CLIPPING";
+export type PaintState = "DRAW" | "DRAWWING" | "GRAB" | "GRABBING" | "CLIP" | "CLIPPING";
 
 export class BoundBox {
 	left: number = 0;
