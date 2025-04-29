@@ -37,7 +37,6 @@ export class Cursor {
 			pos = this.lastPos;
 		}
 		this.curPos = pos;
-		// this.clear();
 		this.curCtx.save();
 		this.curCtx.lineWidth = this.cursorLineWith;
 		this.curCtx.beginPath();
@@ -45,32 +44,5 @@ export class Cursor {
 		this.curCtx.stroke();
 		this.curCtx.restore();
 		this.lastPos = this.curPos;
-	}
-
-	clear() {
-		// todo
-		// 1. 只清除外接正方形和内接正方形夹的部分
-		// 2. 只清除圆边部分
-		this.curCtx.clearRect(
-			this.lastPos.x - (this._ridus + this.cursorLineWith + 2),
-			this.lastPos.y - (this._ridus + this.cursorLineWith + 2),
-			(this._ridus + this.cursorLineWith + 2) * 2,
-			(this._ridus + this.cursorLineWith + 2) * 2
-		);
-		for (const layer of this.layers) {
-			if (layer.visiable) {
-				this.curCtx.drawImage(
-					layer.vCanvas,
-					this.lastPos.x - (this._ridus + this.cursorLineWith + 2),
-					this.lastPos.y - (this._ridus + this.cursorLineWith + 2),
-					(this._ridus + this.cursorLineWith + 2) * 2,
-					(this._ridus + this.cursorLineWith + 2) * 2,
-					this.lastPos.x - (this._ridus + this.cursorLineWith + 2),
-					this.lastPos.y - (this._ridus + this.cursorLineWith + 2),
-					(this._ridus + this.cursorLineWith + 2) * 2,
-					(this._ridus + this.cursorLineWith + 2) * 2
-				);
-			}
-		}
 	}
 }

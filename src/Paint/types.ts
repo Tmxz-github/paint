@@ -3,7 +3,7 @@ export interface Vec2D {
 	y: number;
 }
 
-export interface BBox {
+export interface BoundBox {
 	top: number;
 	bottom: number;
 	left: number;
@@ -18,7 +18,7 @@ export interface ZoomOptions {
 
 export type PaintState = "DRAW" | "CLIP" | "CLIPPING";
 
-export class BBox {
+export class BoundBox {
 	left: number = 0;
 	right: number = 0;
 	top: number = 0;

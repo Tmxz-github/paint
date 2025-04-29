@@ -1,6 +1,6 @@
 import type { Brush } from ".";
 import { TRANSPARENT } from "../constants";
-import { BBox, Vec2D } from "../types";
+import { BoundBox, Vec2D } from "../types";
 
 export class Lasso implements Brush {
 	public get startPoint(): Vec2D {
@@ -14,14 +14,14 @@ export class Lasso implements Brush {
 
 	private _startPoint: Vec2D = new Vec2D();
 	public preEndpoint: Vec2D = new Vec2D();
-	public BBox: BBox = new BBox();
+	public boundBox: BoundBox = new BoundBox();
 	public color = "transparent";
 	public size = -1;
 	public thickness = -1;
 	constructor(private burshCtx: CanvasRenderingContext2D) {}
 
-	private drawRect(point1: Vec2D, point2: Vec2D): BBox {
-		if (Vec2D.Equal(point1, point2)) return new BBox();
+	private drawRect(point1: Vec2D, point2: Vec2D): BoundBox {
+		if (Vec2D.Equal(point1, point2)) return new BoundBox();
 		let leftTop: Vec2D = new Vec2D();
 		let rightBottom: Vec2D = new Vec2D();
 		if (point1.x < point2.x && point1.y < point2.y) {
@@ -43,7 +43,7 @@ export class Lasso implements Brush {
 		};
 	}
 
-	public setMinAABB(imageData: ImageData) {
+	public setMinBoundBox(imageData: ImageData) {
 		const width = imageData.width;
 		const height = imageData.height;
 
@@ -56,7 +56,7 @@ export class Lasso implements Brush {
 		// top
 		for (let x = 0; x < pixelLength; x += 4) {
 			if (imageData.data[x + 3 + yt * pixelLength] !== TRANSPARENT) {
-				this.BBox.top += yt - 1;
+				this.boundBox.top += yt - 1;
 				break;
 			}
 			if (x === pixelLength - 4) {
@@ -69,7 +69,7 @@ export class Lasso implements Brush {
 		// bottom
 		for (let x = 0; x < pixelLength; x += 4) {
 			if (imageData.data[x + 3 + yb * pixelLength] !== TRANSPARENT) {
-				this.BBox.bottom -= height - yb;
+				this.boundBox.bottom -= height - yb;
 				break;
 			}
 			if (x === pixelLength - 4) {
@@ -82,7 +82,7 @@ export class Lasso implements Brush {
 		// left
 		for (let y = 0; y < height; y += 1) {
 			if (imageData.data[xl + 3 + y * pixelLength] !== TRANSPARENT) {
-				this.BBox.left += xl / 4 - 1;
+				this.boundBox.left += xl / 4 - 1;
 				break;
 			}
 			if (y === height - 1) {
@@ -95,7 +95,7 @@ export class Lasso implements Brush {
 		// right
 		for (let y = 0; y < height; y += 1) {
 			if (imageData.data[xr + y * pixelLength] !== TRANSPARENT) {
-				this.BBox.right -= width - xr / 4;
+				this.boundBox.right -= width - xr / 4;
 				break;
 			}
 			if (y === height - 1) {
@@ -106,11 +106,11 @@ export class Lasso implements Brush {
 		}
 
 		this.startPoint = {
-			x: this.BBox.left,
-			y: this.BBox.top,
+			x: this.boundBox.left,
+			y: this.boundBox.top,
 		};
 
-		this.drawDot({ x: this.BBox.right, y: this.BBox.bottom });
+		this.drawDot({ x: this.boundBox.right, y: this.boundBox.bottom });
 	}
 
 	public drawDot(point?: Vec2D, clear: boolean = true) {
@@ -130,7 +130,7 @@ export class Lasso implements Brush {
 		}
 		this.preEndpoint.x = Math.floor(this.preEndpoint.x) + 0.5;
 		this.preEndpoint.y = Math.floor(this.preEndpoint.y) + 0.5;
-		this.BBox = this.drawRect(this.startPoint, this.preEndpoint);
+		this.boundBox = this.drawRect(this.startPoint, this.preEndpoint);
 		this.burshCtx.restore();
 	}
 }

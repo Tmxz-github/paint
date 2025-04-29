@@ -1,5 +1,5 @@
 import { Layer } from "../Layer";
-import type { BBox, Vec2D } from "../types";
+import type { BoundBox, Vec2D } from "../types";
 import { deepClone } from "../Utils";
 
 interface PixelDiff {
@@ -9,7 +9,7 @@ interface PixelDiff {
 }
 
 interface Diff {
-	BBox: BBox;
+	BoundBox: BoundBox;
 	pixelDiff: PixelDiff[];
 }
 
@@ -17,7 +17,7 @@ interface LayerDiff {
 	layer: Layer;
 	diff1: Diff;
 	diff2?: Diff;
-	// BBox: BBox;
+	// BoundBox: BoundBox;
 	// pixelDiff: PixelDiff[];
 }
 
@@ -29,25 +29,25 @@ export class CanvasHistory {
 	constructor() {}
 
 	private changeTo(data: LayerDiff, undo: boolean) {
-		const BBox = data.diff1.BBox;
+		const BoundBox = data.diff1.BoundBox;
 		const curImageData = data.layer.vCtx.getImageData(
-			BBox.left,
-			BBox.top,
-			BBox.right - BBox.left,
-			BBox.bottom - BBox.top
+			BoundBox.left,
+			BoundBox.top,
+			BoundBox.right - BoundBox.left,
+			BoundBox.bottom - BoundBox.top
 		);
 		const diff = data.diff1.pixelDiff;
 		for (const d of diff) {
 			const boxPos = {
-				x: d.pos.x - BBox.left,
-				y: d.pos.y - BBox.top,
+				x: d.pos.x - BoundBox.left,
+				y: d.pos.y - BoundBox.top,
 			};
 			const index = (boxPos.x + boxPos.y * curImageData.width) * 4;
 			for (let i = 0; i < 4; i += 1) {
 				curImageData.data[i + index] = undo ? d.preColor[i] : d.changedColor[i];
 			}
 		}
-		data.layer.vCtx.putImageData(curImageData, BBox.left, BBox.top);
+		data.layer.vCtx.putImageData(curImageData, BoundBox.left, BoundBox.top);
 		if (data.diff2) {
 			this.changeTo(
 				{
@@ -60,7 +60,7 @@ export class CanvasHistory {
 		}
 	}
 
-	private findPixelDiff(lineBBox: BBox, currentLayer: Layer) {
+	private findPixelDiff(lineBBox: BoundBox, currentLayer: Layer) {
 		const preData = currentLayer.preCtx.getImageData(
 			lineBBox.left,
 			lineBBox.top,
@@ -103,14 +103,14 @@ export class CanvasHistory {
 		return pixelDiff;
 	}
 
-	public commitChange(lineBBox1: BBox, currentLayer: Layer, lineBBox2?: BBox) {
+	public commitChange(lineBBox1: BoundBox, currentLayer: Layer, lineBBox2?: BoundBox) {
 		const pixelDiff = this.findPixelDiff(lineBBox1, currentLayer);
 		this.index += 1;
-		const diff1 = { pixelDiff, BBox: deepClone(lineBBox1) };
+		const diff1 = { pixelDiff, BoundBox: deepClone(lineBBox1) };
 		let diff2 = undefined;
 		if (lineBBox2) {
 			const pixelDiff2 = this.findPixelDiff(lineBBox2, currentLayer);
-			diff2 = { pixelDiff: pixelDiff2, BBox: deepClone(lineBBox2) };
+			diff2 = { pixelDiff: pixelDiff2, BoundBox: deepClone(lineBBox2) };
 		}
 
 		this.layerDiffs[this.index] = { layer: currentLayer, diff1, diff2 };

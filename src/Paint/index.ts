@@ -1,6 +1,6 @@
 import { Cursor } from "./Cursor";
 import { Layer } from "./Layer";
-import { BBox, Vec2D, type ZoomOptions, type PaintState } from "./types";
+import { BoundBox, Vec2D, type ZoomOptions, type PaintState } from "./types";
 import { KeyListener } from "./Input/key-listener";
 import { Line } from "./Line";
 import { Pen, Eraser } from "./Brushes";
@@ -77,12 +77,18 @@ export class Paint {
 	/** 绘制历史，只记录笔的绘制 */
 	private canvasHistory: CanvasHistory;
 	/** 每一笔绘制后的包围盒 */
-	private lineBBox: BBox = { top: Infinity, bottom: 0, left: Infinity, right: 0 };
+	private lineBBox: BoundBox = { top: Infinity, bottom: 0, left: Infinity, right: 0 };
+	/** 缩放比例 */
 	private _scaleValue: number = 1;
+	/** 缩放步进 */
 	private scaleStep: number = 0.2;
+	/** 设置新的缩放比例前，存储的上次缩放比例 */
 	private preScaleValue: number = 1;
+	/** 光标 */
 	private cursor: Cursor;
+	/** 画布已经点击 */
 	private canvasReady: boolean = false;
+	/** 画布开始绘制 */
 	private drawing: boolean = false;
 	/** 放置画布的画板背景色 */
 	private backgroundColor: string = "#f0f0f0";
@@ -103,13 +109,21 @@ export class Paint {
 	private cursorIn: boolean = false;
 	/** 光标在 canvas 元素上的坐标 */
 	private pointerPos: Vec2D = new Vec2D();
+	/** 画布准备拖动 */
 	private _grabReady: boolean = false;
+	/** 画布拖动种 */
 	private _grabbing: boolean = false;
+	/** 画布拖动开始坐标，每次拖动时都会变化 */
 	private grabStartPos: Vec2D = new Vec2D();
+	/** 剪切内容拖动开始坐标，每次拖动时都会变化 */
 	private clipGrabStartPos: Vec2D = new Vec2D();
+	/** 笔刷，类似套索等工具也是笔刷 */
 	private brush: Brush;
+	/** 同步笔刷 */
 	private mirrorBursh: Brush;
+	/** 鼠标移动时划过的线，本质是点集合 */
 	private readonly line: Line;
+	/** 笔刷表 */
 	private readonly brushes: Map<BurshTypes, Brush> = new Map();
 	private readonly pointerListener: PointerListener;
 	private state: PaintState = "DRAW";
@@ -117,12 +131,14 @@ export class Paint {
 	private clipStarted: boolean = false;
 	/** 确认修改的剪切内容 */
 	private clipped: boolean = false;
+	/** 一些绘制内容不同的图层，例如剪切框、剪切框内容 */
 	private backLayers: Layer[] = [];
+	/** 剪切框内容以及范围 */
 	private clipedArea: {
-		BBox: BBox;
+		boundBox: BoundBox;
 		imageData: ImageData;
 	} = {
-		BBox: new BBox(),
+		boundBox: new BoundBox(),
 		imageData: new ImageData(1, 1),
 	};
 
@@ -248,25 +264,25 @@ export class Paint {
 			if (this.state === "CLIP") {
 				this.state = "CLIPPING";
 				this.clipStarted = true;
-				const BBox = (this.brush as Lasso).BBox;
-				this.clipedArea.BBox = BBox;
+				const boundBox = (this.brush as Lasso).boundBox;
+				this.clipedArea.boundBox = boundBox;
 				this.clipedArea.imageData = this.currentLayer.vCtx.getImageData(
-					BBox.left,
-					BBox.top,
-					BBox.right - BBox.left,
-					BBox.bottom - BBox.top
+					boundBox.left,
+					boundBox.top,
+					boundBox.right - boundBox.left,
+					boundBox.bottom - boundBox.top
 				);
-				(this.brush as Lasso).setMinAABB(this.clipedArea.imageData);
+				(this.brush as Lasso).setMinBoundBox(this.clipedArea.imageData);
 				this.clipedArea.imageData = this.currentLayer.vCtx.getImageData(
-					BBox.left,
-					BBox.top,
-					BBox.right - BBox.left,
-					BBox.bottom - BBox.top
+					boundBox.left,
+					boundBox.top,
+					boundBox.right - boundBox.left,
+					boundBox.bottom - boundBox.top
 				);
 			} else if (this.state === "CLIPPING") {
 				(this.brush as Lasso).drawDot(undefined, false);
-				this.putContent((this.brush as Lasso).BBox);
-				this.canvasHistory.commitChange(this.clipedArea.BBox, this.currentLayer, (this.brush as Lasso).BBox);
+				this.putContent((this.brush as Lasso).boundBox);
+				this.canvasHistory.commitChange(this.clipedArea.boundBox, this.currentLayer, (this.brush as Lasso).boundBox);
 				this.clipped = true;
 				this.state = "CLIP";
 			}
@@ -353,7 +369,6 @@ export class Paint {
 		};
 		if (e.movementX === 0 && e.movementY === 0) return;
 
-		// todo 每次移动都重新绘制图层太过消耗性能
 		this.renderLayers();
 
 		this.cursorRender(this.pointerPos);
@@ -369,10 +384,15 @@ export class Paint {
 			return;
 		}
 		if (this.canvasReady && this.currentLayer.visiable && !this.grabbing && this.state === "CLIPPING") {
-			if (this.inBBox(this.cursor.curPos, (this.brush as Lasso).BBox)) {
-				const BBox = (this.brush as Lasso).BBox;
+			if (this.inBBox(this.cursor.curPos, (this.brush as Lasso).boundBox)) {
+				const boundBox = (this.brush as Lasso).boundBox;
 				if (this.clipStarted) {
-					this.currentLayer.vCtx.clearRect(BBox.left, BBox.top, BBox.right - BBox.left, BBox.bottom - BBox.top);
+					this.currentLayer.vCtx.clearRect(
+						boundBox.left,
+						boundBox.top,
+						boundBox.right - boundBox.left,
+						boundBox.bottom - boundBox.top
+					);
 				}
 				const offset = Vec2D.Sub(
 					{
@@ -381,16 +401,16 @@ export class Paint {
 					},
 					this.clipGrabStartPos
 				);
-				
+
 				offset.x /= this._scaleValue;
 				offset.y /= this._scaleValue;
 
 				(this.brush as Lasso).startPoint = Vec2D.Add((this.brush as Lasso).startPoint, offset);
 
 				const lassoCtx = this.backLayers[LASSO_LAYER_INDEX].vCtx;
-				lassoCtx.clearRect(BBox.left, BBox.top, BBox.right - BBox.left, BBox.bottom - BBox.top);
+				lassoCtx.clearRect(boundBox.left, boundBox.top, boundBox.right - boundBox.left, boundBox.bottom - boundBox.top);
 				this.brush.drawDot(Vec2D.Add((this.brush as Lasso).preEndpoint, offset));
-				this.grabContent((this.brush as Lasso).BBox);
+				this.grabContent((this.brush as Lasso).boundBox);
 
 				this.clipGrabStartPos = {
 					x: e.offsetX,
@@ -457,22 +477,22 @@ export class Paint {
 		return pos.x > this.canvasElement.width || pos.x < 0 || pos.y > this.canvasElement.height || pos.y < 0;
 	}
 
-	private grabContent(BBox: BBox) {
+	private grabContent(boundBox: BoundBox) {
 		const lassoCtx = this.backLayers[LASSO_LAYER_INDEX].vCtx;
-		const targetPos = { x: BBox.left, y: BBox.top };
+		const targetPos = { x: boundBox.left, y: boundBox.top };
 		lassoCtx.putImageData(this.clipedArea.imageData, targetPos.x, targetPos.y);
 	}
 
-	private putContent(BBox: BBox) {
-		const targetPos = { x: BBox.left, y: BBox.top };
+	private putContent(boundBox: BoundBox) {
+		const targetPos = { x: boundBox.left, y: boundBox.top };
 		const tmpContext = createCanvasContext(this.clipedArea.imageData);
 		const lassoCtx = this.backLayers[LASSO_LAYER_INDEX].vCtx;
-		lassoCtx.clearRect(BBox.left, BBox.top, BBox.right - BBox.left, BBox.bottom - BBox.top);
+		lassoCtx.clearRect(boundBox.left, boundBox.top, boundBox.right - boundBox.left, boundBox.bottom - boundBox.top);
 		this.currentLayer.vCtx.drawImage(tmpContext.canvas, targetPos.x - 0.5, targetPos.y - 0.5);
 	}
 
-	private inBBox(pos: Vec2D, BBox: BBox) {
-		return pos.x > BBox.left && pos.x < BBox.right && pos.y > BBox.top && pos.y < BBox.bottom;
+	private inBBox(pos: Vec2D, boundBox: BoundBox) {
+		return pos.x > boundBox.left && pos.x < boundBox.right && pos.y > boundBox.top && pos.y < boundBox.bottom;
 	}
 
 	private getImageData(sx?: number, sy?: number, sw?: number, sh?: number, settings?: ImageDataSettings) {
@@ -484,6 +504,24 @@ export class Paint {
 		return this.mirrorCtx.getImageData(sx, sy, sw, sh, settings);
 	}
 
+	/**
+	 * @param pos 光标在 canvas 元素上的坐标
+	 */
+	private cursorRender(pos: Vec2D) {
+		if (!this.grabReady && !this.grabbing) {
+			const t = this.viewCtx.getTransform();
+			const inverse = t.inverse();
+
+			const canvasX = inverse.a * pos.x + inverse.c * pos.y + inverse.e;
+			const canvasY = inverse.b * pos.x + inverse.d * pos.y + inverse.f;
+
+			this.cursor.render({
+				x: canvasX,
+				y: canvasY,
+			});
+		}
+	}
+
 	public swtichBursh(type: BurshTypes) {
 		if (type === "LASSO") {
 			this.state = "CLIP";
@@ -492,7 +530,7 @@ export class Paint {
 			this.backLayers[LASSO_RECT_INDEX].vCtx.clearRect(0, 0, this.width, this.height);
 			this.backLayers[LASSO_LAYER_INDEX].vCtx.clearRect(0, 0, this.width, this.height);
 			if (!this.clipped) {
-				this.putContent(this.clipedArea.BBox);
+				this.putContent(this.clipedArea.boundBox);
 			}
 			this.state = "DRAW";
 			this.renderLayers();
@@ -558,7 +596,6 @@ export class Paint {
 				this.viewCtx.drawImage(layer.vCtx.canvas, 0, 0);
 			}
 		}
-		// this.viewCtx.putImageData(this.clipedArea.imageData, 100, 100);
 		this.viewCtx.drawImage(this.backLayers[LASSO_LAYER_INDEX].vCtx.canvas, 0, 0);
 		this.viewCtx.drawImage(this.backLayers[LASSO_RECT_INDEX].vCtx.canvas, 0, 0);
 	}
@@ -569,24 +606,6 @@ export class Paint {
 		if (!layer) return;
 		layer.visiable = v;
 		this.renderLayers();
-	}
-
-	/**
-	 * @param pos 光标在 canvas 元素上的坐标
-	 */
-	public cursorRender(pos: Vec2D) {
-		if (!this.grabReady && !this.grabbing) {
-			const t = this.viewCtx.getTransform();
-			const inverse = t.inverse();
-
-			const canvasX = inverse.a * pos.x + inverse.c * pos.y + inverse.e;
-			const canvasY = inverse.b * pos.x + inverse.d * pos.y + inverse.f;
-
-			this.cursor.render({
-				x: canvasX,
-				y: canvasY,
-			});
-		}
 	}
 
 	/**
@@ -610,7 +629,7 @@ export class Paint {
 		this.grabStartPos = pos;
 	}
 
-	rotateTo(degree: number) {
+	public rotateTo(degree: number) {
 		degree = CircleClamp(degree, -360, 360);
 		this._rotateDegree = degree;
 		this.applyTransform(this._rotateDegree, this._scaleValue, this.canvasOffset);
