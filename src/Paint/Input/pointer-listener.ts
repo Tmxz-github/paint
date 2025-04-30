@@ -2,7 +2,7 @@ import type { Vec2D } from "../types";
 
 type PointerTypes = "UP" | "DOWN" | "LINE" | "ENTER" | "CONTEXT" | "WHEEL" | "MOVE" | "LEAVE";
 
-interface MyPointerEvent {
+export interface MyPointerEvent {
 	type: PointerTypes;
 	pressure: number;
 	pos: Vec2D;

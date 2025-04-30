@@ -10,6 +10,9 @@ import { CircleClamp, Clamp, createMirror, deepClone } from "./Utils";
 import { CanvasHistory } from "./CanvasHistory";
 import { Lasso } from "./Brushes/Lasso";
 import { createCanvasContext } from "./Utils/canvas";
+import { BaseMode, type PaintMode } from "./Mode";
+import { DrawMode } from "./Mode/drawMode";
+import { ClipMode } from "./Mode/clipMode";
 
 interface PaintOption {
 	containerEl: HTMLElement;
@@ -67,7 +70,7 @@ export class Paint {
 		this._rotateDegree = value;
 	}
 
-	private containerEl: HTMLElement;
+	public containerEl: HTMLElement;
 	/** canvas html 元素 */
 	private canvasElement: HTMLCanvasElement;
 	/** 视窗绘制上下文，只负责最终渲染，所有绘制应先在其余离线 canvas 上绘制后再合并绘制到 viewCtx 上 */
@@ -75,21 +78,19 @@ export class Paint {
 	/** 同步 currentLayer  */
 	private mirrorCtx: CanvasRenderingContext2D;
 	/** 绘制历史，只记录笔的绘制 */
-	private canvasHistory: CanvasHistory;
+	public canvasHistory: CanvasHistory;
 	/** 每一笔绘制后的包围盒 */
-	private lineBBox: BoundBox = { top: Infinity, bottom: 0, left: Infinity, right: 0 };
+	public lineBBox: BoundBox = { top: Infinity, bottom: 0, left: Infinity, right: 0 };
 	/** 缩放比例 */
 	private _scaleValue: number = 1;
 	/** 缩放步进 */
-	private scaleStep: number = 0.2;
+	public scaleStep: number = 0.2;
 	/** 设置新的缩放比例前，存储的上次缩放比例 */
 	private preScaleValue: number = 1;
 	/** 光标 */
-	private cursor: Cursor;
+	public cursor: Cursor;
 	/** 画布已经点击 */
-	private canvasReady: boolean = false;
-	/** 画布开始绘制 */
-	private drawing: boolean = false;
+	public canvasReady: boolean = false;
 	/** 放置画布的画板背景色 */
 	private backgroundColor: string = "#f0f0f0";
 	/** 画布背景色 */
@@ -106,33 +107,33 @@ export class Paint {
 	 * todo
 	 * 页面加载时如果光标在元素内则需要动一下 cursor 才能渲染
 	 */
-	private cursorIn: boolean = false;
+	public cursorIn: boolean = false;
 	/** 光标在 canvas 元素上的坐标 */
-	private pointerPos: Vec2D = new Vec2D();
+	public pointerPos: Vec2D = new Vec2D();
 	/** 画布准备拖动 */
 	private _grabReady: boolean = false;
 	/** 画布拖动种 */
 	private _grabbing: boolean = false;
 	/** 画布拖动开始坐标，每次拖动时都会变化 */
-	private grabStartPos: Vec2D = new Vec2D();
+	public grabStartPos: Vec2D = new Vec2D();
 	/** 剪切内容拖动开始坐标，每次拖动时都会变化 */
-	private clipGrabStartPos: Vec2D = new Vec2D();
+	public clipGrabStartPos: Vec2D = new Vec2D();
 	/** 笔刷，类似套索等工具也是笔刷 */
-	private brush: Brush;
+	public brush: Brush;
 	/** 同步笔刷 */
 	private mirrorBursh: Brush;
 	/** 鼠标移动时划过的线，本质是点集合 */
-	private readonly line: Line;
+	public readonly line: Line;
 	/** 笔刷表 */
 	private readonly brushes: Map<BurshTypes, Brush> = new Map();
 	private readonly pointerListener: PointerListener;
-	private state: PaintState = "DRAW";
+	public state: PaintState = "DRAW";
 	/** 开始修改剪切内容 */
-	private clipStarted: boolean = false;
+	public clipStarted: boolean = false;
 	/** 确认修改的剪切内容 */
 	private clipped: boolean = false;
 	/** 一些绘制内容不同的图层，例如剪切框、剪切框内容 */
-	private backLayers: Layer[] = [];
+	public backLayers: Layer[] = [];
 	/** 剪切框内容以及范围 */
 	private clipedArea: {
 		boundBox: BoundBox;
@@ -141,6 +142,10 @@ export class Paint {
 		boundBox: new BoundBox(),
 		imageData: new ImageData(1, 1),
 	};
+	private drawMode: DrawMode = new DrawMode(this);
+	private clipMode: ClipMode = new ClipMode(this);
+	private mode: PaintMode = this.drawMode;
+	private baseMode: BaseMode = new BaseMode(this);
 
 	/** 处理键盘绑定 */
 	public readonly keyListener: KeyListener;
@@ -225,133 +230,30 @@ export class Paint {
 	}
 
 	private eventBind() {
-		this.pointerListener.on("MOVE", ({ e, pos }) => {
-			this.pointerPos = pos;
-			if (e.movementX === 0 && e.movementY === 0) return;
-
-			this.renderLayers();
-
-			this.cursorRender(this.pointerPos);
-
-			const div = document.querySelector("#pos")!;
-			div.innerHTML = `${this.cursor.curPos.x}:::${this.cursor.curPos.y}`;
-
-			if (this.grabbing) {
-				this.grabTo(this.pointerPos);
-			}
-			if (this.canvasReady && this.currentLayer.visiable && !this.grabbing && this.state === "CLIP") {
-				this.brush.drawDot(this.cursor.curPos);
-				return;
-			}
-			if (this.canvasReady && this.currentLayer.visiable && !this.grabbing && this.state === "CLIPPING") {
-				if (this.inBBox(this.cursor.curPos, (this.brush as Lasso).boundBox)) {
-					const boundBox = (this.brush as Lasso).boundBox;
-					if (this.clipStarted) {
-						this.currentLayer.vCtx.clearRect(
-							boundBox.left,
-							boundBox.top,
-							boundBox.right - boundBox.left,
-							boundBox.bottom - boundBox.top
-						);
-					}
-					const offset = Vec2D.Sub(pos, this.clipGrabStartPos);
-
-					offset.x /= this._scaleValue;
-					offset.y /= this._scaleValue;
-
-					(this.brush as Lasso).startPoint = Vec2D.Add((this.brush as Lasso).startPoint, offset);
-
-					const lassoCtx = this.backLayers[LASSO_LAYER_INDEX].vCtx;
-					lassoCtx.clearRect(
-						boundBox.left,
-						boundBox.top,
-						boundBox.right - boundBox.left,
-						boundBox.bottom - boundBox.top
-					);
-					this.brush.drawDot(Vec2D.Add((this.brush as Lasso).preEndpoint, offset));
-					this.grabContent((this.brush as Lasso).boundBox);
-
-					this.clipGrabStartPos = pos;
-
-					this.clipStarted = false;
-				}
-				return;
-			}
-			if (this.canvasReady && this.currentLayer.visiable && !this.grabbing) {
-				this.lineBBox.left = Math.floor(Math.min(this.lineBBox.left, this.cursor.curPos.x - this.brush.size));
-				this.lineBBox.right = Math.ceil(Math.max(this.lineBBox.right, this.cursor.curPos.x + this.brush.size));
-				this.lineBBox.top = Math.floor(Math.min(this.lineBBox.top, this.cursor.curPos.y - this.brush.size));
-				this.lineBBox.bottom = Math.ceil(Math.max(this.lineBBox.bottom, this.cursor.curPos.y + this.brush.size));
-				this.draw(this.cursor.curPos);
-				this.drawing = true;
-			}
+		this.pointerListener.on("MOVE", (ev) => {
+			if (ev.e.movementX === 0 && ev.e.movementY === 0) return;
+			this.baseMode.onPointerMove(ev);
+			this.mode.onPointerMove(ev);
 		});
-		this.pointerListener.on("DOWN", ({ pos }) => {
-			this.canvasReady = true;
-			if (this.grabReady) {
-				this.grabbing = true;
-			}
-			this.grabStartPos = pos;
-			if (this.state === "CLIP") {
-				(this.brush as Lasso).startPoint = deepClone(this.cursor.curPos);
-			}
-			if (this.state === "CLIPPING") {
-				this.clipGrabStartPos = pos;
-			}
+		this.pointerListener.on("DOWN", (ev) => {
+			this.baseMode.onPointerDown(ev);
+			this.mode.onPointerDown(ev);
 		});
-		this.pointerListener.on("UP", ({ pos }) => {
-			this.pointerPos = pos;
-			if (this.state === "CLIP") {
-				(this.brush as Lasso).drawDot(this.cursor.curPos);
-			}
-			if (this.state === "CLIPPING") {
-				(this.brush as Lasso).drawDot(undefined, false);
-			}
-			if (this.canvasReady && this.drawing) {
-				this.line.endLine();
-
-				this.canvasHistory.commitChange(this.lineBBox, this.currentLayer);
-
-				this.currentLayer.preCtx.putImageData(this.getImageData(), 0, 0);
-				/** 每一笔绘制完后重制包围盒 */
-				this.lineBBox = {
-					top: Infinity,
-					left: Infinity,
-					bottom: 0,
-					right: 0,
-				};
-			}
-			this.canvasReady = false;
-			this.drawing = false;
-			this.grabbing = false;
-			this.renderLayers();
+		this.pointerListener.on("UP", (ev) => {
+			this.baseMode.onPointerUp(ev);
+			this.mode.onPointerUp(ev);
 		});
-		this.pointerListener.on("LEAVE", ({ pos }) => {
-			this.pointerPos = pos;
-			this.canvasReady = false;
-			this.cursorIn = false;
-			this.line.endLine();
-			this.renderLayers();
+		this.pointerListener.on("LEAVE", (ev) => {
+			this.baseMode.onPointerLeave(ev);
+			this.mode.onPointerLeave(ev);
 		});
-		this.pointerListener.on("ENTER", ({ pos }) => {
-			this.pointerPos = pos;
-			this.containerEl.focus();
-			this.cursorIn = true;
-			this.renderLayers();
+		this.pointerListener.on("ENTER", (ev) => {
+			this.baseMode.onPointerEnter(ev);
+			this.mode.onPointerEnter(ev);
 		});
-		this.pointerListener.on("WHEEL", ({ e, pos }) => {
-			this.pointerPos = pos;
-			(e as WheelEvent).deltaY < 0
-				? this.zoomIn({
-						scaleStep: this.scaleStep * this._scaleValue,
-						center: { x: e.offsetX, y: e.offsetY },
-						smooth: true,
-				  })
-				: this.zoomOut({
-						scaleStep: this.scaleStep * this._scaleValue,
-						center: { x: e.offsetX, y: e.offsetY },
-						smooth: true,
-				  });
+		this.pointerListener.on("WHEEL", (ev) => {
+			this.baseMode.onWheel(ev);
+			this.mode.onWheel(ev);
 		});
 
 		this.keyListener.on(" :down", () => {
@@ -416,7 +318,7 @@ export class Paint {
 		return pos.x > this.canvasElement.width || pos.x < 0 || pos.y > this.canvasElement.height || pos.y < 0;
 	}
 
-	private grabContent(boundBox: BoundBox) {
+	public grabContent(boundBox: BoundBox) {
 		const lassoCtx = this.backLayers[LASSO_LAYER_INDEX].vCtx;
 		const targetPos = { x: boundBox.left, y: boundBox.top };
 		lassoCtx.putImageData(this.clipedArea.imageData, targetPos.x, targetPos.y);
@@ -430,11 +332,11 @@ export class Paint {
 		this.currentLayer.vCtx.drawImage(tmpContext.canvas, targetPos.x - 0.5, targetPos.y - 0.5);
 	}
 
-	private inBBox(pos: Vec2D, boundBox: BoundBox) {
+	public inBBox(pos: Vec2D, boundBox: BoundBox) {
 		return pos.x > boundBox.left && pos.x < boundBox.right && pos.y > boundBox.top && pos.y < boundBox.bottom;
 	}
 
-	private getImageData(sx?: number, sy?: number, sw?: number, sh?: number, settings?: ImageDataSettings) {
+	public getImageData(sx?: number, sy?: number, sw?: number, sh?: number, settings?: ImageDataSettings) {
 		if (sx === undefined) sx = 0;
 		if (sy === undefined) sy = 0;
 		if (sw === undefined) sw = this.canvasElement.width;
@@ -446,7 +348,7 @@ export class Paint {
 	/**
 	 * @param pos 光标在 canvas 元素上的坐标
 	 */
-	private cursorRender(pos: Vec2D) {
+	public cursorRender(pos: Vec2D) {
 		if (!this.grabReady && !this.grabbing) {
 			const t = this.viewCtx.getTransform();
 			const inverse = t.inverse();
@@ -465,6 +367,7 @@ export class Paint {
 		if (type === "LASSO") {
 			this.state = "CLIP";
 			this.clipped = false;
+			this.mode = this.clipMode;
 		} else {
 			this.backLayers[LASSO_RECT_INDEX].vCtx.clearRect(0, 0, this.width, this.height);
 			this.backLayers[LASSO_LAYER_INDEX].vCtx.clearRect(0, 0, this.width, this.height);
@@ -473,6 +376,7 @@ export class Paint {
 			}
 			this.state = "DRAW";
 			this.renderLayers();
+			this.mode = this.drawMode;
 		}
 		this.brush = this.brushes.get(type) || this.brushes.get("PEN")!;
 	}

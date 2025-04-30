@@ -31,9 +31,6 @@ export class Eraser implements Brush {
 
 	public drawDot(point: Vec2D) {
 		this.burshCtx.save();
-		this.burshCtx.fillStyle = "red";
-		this.burshCtx.lineWidth = 0;
-
 		this.burshCtx.beginPath();
 		this.burshCtx.fillStyle = this._color;
 		this.burshCtx.globalAlpha = this._thickness;
