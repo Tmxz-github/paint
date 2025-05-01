@@ -13,12 +13,12 @@ export class ClipMode implements PaintMode {
 
 		this.ctx.cursorRender(this.ctx.pointerPos);
 
-		if (this.ctx.canvasReady && this.ctx.currentLayer.visiable && !this.ctx.grabbing && this.ctx.state === "CLIP") {
+		if (this.ctx.canDraw && this.ctx.state === "CLIP") {
 			this.ctx.brush.drawDot(this.ctx.cursor.curPos);
 			return;
 		}
 
-		if (this.ctx.canvasReady && this.ctx.currentLayer.visiable && !this.ctx.grabbing && this.ctx.state === "CLIPPING") {
+		if (this.ctx.canDraw && this.ctx.state === "CLIPPING") {
 			if (this.ctx.inBBox(this.ctx.cursor.curPos, (this.ctx.brush as Lasso).boundBox)) {
 				const boundBox = (this.ctx.brush as Lasso).boundBox;
 				if (this.ctx.clipStarted) {

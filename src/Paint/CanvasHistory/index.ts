@@ -9,7 +9,7 @@ interface PixelDiff {
 }
 
 interface Diff {
-	BoundBox: BoundBox;
+	boundBox: BoundBox;
 	pixelDiff: PixelDiff[];
 }
 
@@ -29,7 +29,7 @@ export class CanvasHistory {
 	constructor() {}
 
 	private changeTo(data: LayerDiff, undo: boolean) {
-		const BoundBox = data.diff1.BoundBox;
+		const BoundBox = data.diff1.boundBox;
 		const curImageData = data.layer.vCtx.getImageData(
 			BoundBox.left,
 			BoundBox.top,
@@ -104,13 +104,14 @@ export class CanvasHistory {
 	}
 
 	public commitChange(lineBBox1: BoundBox, currentLayer: Layer, lineBBox2?: BoundBox) {
+		console.log("change", lineBBox1, lineBBox2)
 		const pixelDiff = this.findPixelDiff(lineBBox1, currentLayer);
 		this.index += 1;
-		const diff1 = { pixelDiff, BoundBox: deepClone(lineBBox1) };
+		const diff1 = { pixelDiff, boundBox: deepClone(lineBBox1) };
 		let diff2 = undefined;
 		if (lineBBox2) {
 			const pixelDiff2 = this.findPixelDiff(lineBBox2, currentLayer);
-			diff2 = { pixelDiff: pixelDiff2, BoundBox: deepClone(lineBBox2) };
+			diff2 = { pixelDiff: pixelDiff2, boundBox: deepClone(lineBBox2) };
 		}
 
 		this.layerDiffs[this.index] = { layer: currentLayer, diff1, diff2 };
@@ -120,6 +121,7 @@ export class CanvasHistory {
 		if (this.layerDiffs.length > this.stackMaxLength) {
 			this.layerDiffs.unshift();
 		}
+		console.log(this.layerDiffs)
 	}
 
 	public undo() {

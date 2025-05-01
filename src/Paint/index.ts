@@ -69,6 +69,9 @@ export class Paint {
 		this._rotateRadian = (value * Math.PI) / 180;
 		this._rotateDegree = value;
 	}
+	public get canDraw() {
+		return this.canvasReady && this.currentLayer.visiable && !this.grabbing;
+	}
 
 	public containerEl: HTMLElement;
 	/** canvas html 元素 */
@@ -134,6 +137,8 @@ export class Paint {
 	private clipped: boolean = false;
 	/** 一些绘制内容不同的图层，例如剪切框、剪切框内容 */
 	public backLayers: Layer[] = [];
+	/** 画板是否处于光标按下状态 && 当前图层是否可见 && 非拖拽模式 */
+	private _canDraw: boolean = true;
 	/** 剪切框内容以及范围 */
 	private clipedArea: {
 		boundBox: BoundBox;
@@ -232,28 +237,28 @@ export class Paint {
 	private eventBind() {
 		this.pointerListener.on("MOVE", (ev) => {
 			if (ev.e.movementX === 0 && ev.e.movementY === 0) return;
-			this.baseMode.onPointerMove(ev);
 			this.mode.onPointerMove(ev);
+			this.baseMode.onPointerMove(ev);
 		});
 		this.pointerListener.on("DOWN", (ev) => {
-			this.baseMode.onPointerDown(ev);
 			this.mode.onPointerDown(ev);
+			this.baseMode.onPointerDown(ev);
 		});
 		this.pointerListener.on("UP", (ev) => {
-			this.baseMode.onPointerUp(ev);
 			this.mode.onPointerUp(ev);
+			this.baseMode.onPointerUp(ev);
 		});
 		this.pointerListener.on("LEAVE", (ev) => {
-			this.baseMode.onPointerLeave(ev);
 			this.mode.onPointerLeave(ev);
+			this.baseMode.onPointerLeave(ev);
 		});
 		this.pointerListener.on("ENTER", (ev) => {
-			this.baseMode.onPointerEnter(ev);
 			this.mode.onPointerEnter(ev);
+			this.baseMode.onPointerEnter(ev);
 		});
 		this.pointerListener.on("WHEEL", (ev) => {
-			this.baseMode.onWheel(ev);
 			this.mode.onWheel(ev);
+			this.baseMode.onWheel(ev);
 		});
 
 		this.keyListener.on(" :down", () => {
@@ -298,6 +303,7 @@ export class Paint {
 				(this.brush as Lasso).drawDot(undefined, false);
 				this.putContent((this.brush as Lasso).boundBox);
 				this.canvasHistory.commitChange(this.clipedArea.boundBox, this.currentLayer, (this.brush as Lasso).boundBox);
+				this.currentLayer.preCtx.putImageData(this.getImageData(), 0, 0);
 				this.clipped = true;
 				this.state = "CLIP";
 			}

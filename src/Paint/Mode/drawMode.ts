@@ -8,7 +8,7 @@ export class DrawMode implements PaintMode {
 	constructor(private ctx: Paint) {}
 
 	onPointerMove(ev: MyPointerEvent) {
-		if (this.ctx.canvasReady && this.ctx.currentLayer.visiable && !this.ctx.grabbing) {
+		if (this.ctx.canDraw) {
 			this.ctx.lineBBox.left = Math.floor(
 				Math.min(this.ctx.lineBBox.left, this.ctx.cursor.curPos.x - this.ctx.brush.size)
 			);
