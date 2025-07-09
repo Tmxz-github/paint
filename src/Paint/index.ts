@@ -129,7 +129,7 @@ export class Paint {
 	public readonly line: Line;
 	/** 笔刷表 */
 	private readonly brushes: Map<BurshTypes, Brush> = new Map();
-	private readonly pointerListener: PointerListener;
+	public readonly pointerListener: PointerListener;
 	public state: PaintState = "DRAW";
 	/** 开始修改剪切内容 */
 	public clipStarted: boolean = false;
@@ -516,7 +516,7 @@ export class Paint {
 		let i = 0;
 		const frame = () => {
 			if (i >= 10) return;
-			this._scaleValue += scaleStep! / 5;
+			this._scaleValue += scaleStep / 5;
 			if (this._scaleValue === this.preScaleValue) {
 				return;
 			}

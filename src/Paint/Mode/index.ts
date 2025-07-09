@@ -14,10 +14,8 @@ export class BaseMode implements PaintMode {
 	constructor(private ctx: Paint) {}
 	onPointerMove({ pos }: MyPointerEvent) {
 		this.ctx.pointerPos = pos;
-		this.ctx.cursorRender(pos);
 		this.ctx.renderLayers();
-		const div = document.querySelector("#pos")!;
-		div.innerHTML = `${this.ctx.cursor.curPos.x}:::${this.ctx.cursor.curPos.y}`;
+		this.ctx.cursorRender(pos);
 
 		if (this.ctx.grabbing) {
 			this.ctx.grabTo(this.ctx.pointerPos);

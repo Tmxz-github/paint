@@ -14,6 +14,10 @@ onMounted(() => {
 		containerEl: canvas.value,
 		width: 1024,
 	});
+	paint.value.pointerListener.on("MOVE", () => {
+		const div = document.querySelector("#pos")!;
+		div.innerHTML = `${paint.value?.cursor.curPos.x}:::${paint.value?.cursor.curPos.y}`;
+	})
 });
 
 const setLayer = (i: number) => {
