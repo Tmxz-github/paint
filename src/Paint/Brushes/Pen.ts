@@ -1,5 +1,5 @@
 import type { Brush, BrushStyle } from ".";
-import type { Vec2D } from "../types";
+import type { Vec2D } from "../../Types";
 import { Clamp } from "../Utils";
 
 export class Pen implements Brush {

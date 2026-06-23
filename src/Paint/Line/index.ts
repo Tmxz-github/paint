@@ -1,6 +1,7 @@
 import type { Brush } from "../Brushes";
 import { Pen } from "../Brushes/Pen";
-import { Vec2D, type DirPoint } from "../types";
+import type { DirPoint } from "../../Types";
+import { Vec2D } from "../../Types/vec2d";
 import { Clamp, deepClone, easeOutDecay, Mix } from "../Utils";
 import { genBezierPoints } from "../Utils/line";
 import { PointsLine } from "./PointsLine";
@@ -8,12 +9,15 @@ import { PointsLine } from "./PointsLine";
 export class Line {
 	private lastDot: number = 0;
 	private originPoints: DirPoint[] = [];
-	private lastPoint: Vec2D = new Vec2D();
+	private lastPoint: Vec2D = { x: 0, y: 0 };
 	private bezierPoints: Vec2D[] = [];
 
 	public pointsLine: PointsLine;
 
-	constructor(private pathCtx: CanvasRenderingContext2D, private brush: Brush) {
+	constructor(
+		private pathCtx: CanvasRenderingContext2D,
+		private brush: Brush,
+	) {
 		if (!brush) {
 			this.brush = new Pen(this.pathCtx, 2, 2, "black");
 		}
@@ -24,7 +28,7 @@ export class Line {
 		this.originPoints.push({
 			x: point.x,
 			y: point.y,
-			dir: new Vec2D(),
+			dir: { x: 0, y: 0 },
 		});
 		this.brush.drawDot(point);
 	}
@@ -37,7 +41,7 @@ export class Line {
 		this.originPoints.push({
 			x: curPoint.x,
 			y: curPoint.y,
-			dir: new Vec2D(),
+			dir: { x: 0, y: 0 },
 		});
 
 		if (this.originPoints.length === 1) {
@@ -58,7 +62,7 @@ export class Line {
 		this.bezierPoints = genBezierPoints(
 			this.originPoints[this.originPoints.length - 3],
 			this.originPoints[this.originPoints.length - 2],
-			20
+			20,
 		);
 
 		this.pointsLine.addPoints(this.bezierPoints);

@@ -1,4 +1,4 @@
-import { Vec2D } from "../types";
+import { Vec2D } from "../../Types/vec2d";
 
 export class PointsLine {
 	constructor(points?: Vec2D[]) {

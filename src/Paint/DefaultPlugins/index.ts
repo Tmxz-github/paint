@@ -1,5 +1,5 @@
 import type { Paint } from "..";
-import type { AnyObject, PaintEvents } from "../types";
+import type { AnyObject, PaintEvents } from "../../Types";
 
 export class PaintPlugin {
 	name: string = "default";

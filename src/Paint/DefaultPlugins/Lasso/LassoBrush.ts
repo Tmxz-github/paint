@@ -1,6 +1,7 @@
 import type { Brush } from "../../Brushes";
 import { TRANSPARENT } from "../../constants";
-import { BoundBox, Vec2D } from "../../types";
+import { BoundBox } from "../../../Types";
+import { Vec2D } from "../../../Types/vec2d";
 
 export class LassoBrush implements Brush {
 	public get startPoint(): Vec2D {
@@ -12,16 +13,16 @@ export class LassoBrush implements Brush {
 		this._startPoint = value;
 	}
 
-	private _startPoint: Vec2D = new Vec2D();
-	public preEndpoint: Vec2D = new Vec2D();
-	public boundBox: BoundBox = new BoundBox();
+	private _startPoint: Vec2D = { x: 0, y: 0 };
+	public preEndpoint: Vec2D = { x: 0, y: 0 };
+	public boundBox: BoundBox =	BoundBox.Empty;
 	public color = "transparent";
 	public size = -1;
 	public thickness = -1;
 	constructor(private brushCtx: CanvasRenderingContext2D) {}
 
 	private drawRect(point1: Vec2D, point2: Vec2D): BoundBox {
-		if (Vec2D.Equal(point1, point2)) return new BoundBox();
+		if (Vec2D.Equal(point1, point2)) return BoundBox.Empty;
 		const left = Math.min(point1.x, point2.x);
 		const right = Math.max(point1.x, point2.x);
 		const top = Math.min(point1.y, point2.y);

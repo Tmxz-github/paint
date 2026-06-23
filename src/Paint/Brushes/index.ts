@@ -1,4 +1,4 @@
-import type { Vec2D } from "../types";
+import type { Vec2D } from "../../Types";
 import { Pen } from "./Pen";
 export interface BrushStyle {
 	size: number;

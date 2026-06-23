@@ -1,7 +1,7 @@
 import { PaintPlugin } from "..";
 import type { Paint } from "../..";
 import { LASSO_LAYER_INDEX, LASSO_RECT_INDEX } from "../../constants";
-import type { AnyObject } from "../../types";
+import type { AnyObject } from "../../../Types";
 import { ClipMode } from "./ClipMode";
 import { LassoBrush } from "./LassoBrush";
 
@@ -12,7 +12,6 @@ export class Lasso extends PaintPlugin {
 	}
 
 	/** 剪切状态 */
-	private state: "CLIPPING" | "CLIP" | "" = "";
 	/** 已经确认修改的剪切内容 */
 	private clipped: boolean = false;
 

@@ -1,13 +1,4 @@
-import type { Vec2D } from "../types";
-
-type PointerTypes = "UP" | "DOWN" | "LINE" | "ENTER" | "CONTEXT" | "WHEEL" | "MOVE" | "LEAVE";
-
-export interface MyPointerEvent {
-	type: PointerTypes;
-	pressure: number;
-	pos: Vec2D;
-	e: PointerEvent | WheelEvent | MouseEvent;
-}
+import type { MyPointerEvent, PointerTypes } from "../../Types";
 
 type EventCallBack = (e: MyPointerEvent) => void;
 

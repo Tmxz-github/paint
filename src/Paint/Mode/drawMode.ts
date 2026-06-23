@@ -7,7 +7,7 @@ export class DrawMode implements PaintMode {
 	private drawing: boolean = false;
 	constructor(private ctx: Paint) {}
 
-	onPointerMove(ev: MyPointerEvent) {
+	onPointerMove(_ev: MyPointerEvent) {
 		if (this.ctx.canDraw) {
 			this.ctx.lineBBox.left = Math.floor(
 				Math.min(this.ctx.lineBBox.left, this.ctx.cursor.curPos.x - this.ctx.brush.size),
@@ -25,8 +25,8 @@ export class DrawMode implements PaintMode {
 			this.drawing = true;
 		}
 	}
-	onPointerDown(ev: MyPointerEvent) {}
-	onPointerUp(ev: MyPointerEvent) {
+	onPointerDown(_ev: MyPointerEvent) {}
+	onPointerUp(_ev: MyPointerEvent) {
 		if (this.ctx.canvasReady && this.drawing) {
 			this.ctx.line.endLine();
 
@@ -43,7 +43,7 @@ export class DrawMode implements PaintMode {
 		}
 		this.drawing = false;
 	}
-	onPointerLeave(ev: MyPointerEvent) {}
-	onPointerEnter(ev: MyPointerEvent) {}
-	onWheel(ev: MyPointerEvent) {}
+	onPointerLeave(_ev: MyPointerEvent) {}
+	onPointerEnter(_ev: MyPointerEvent) {}
+	onWheel(_ev: MyPointerEvent) {}
 }

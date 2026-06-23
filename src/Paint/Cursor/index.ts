@@ -1,5 +1,4 @@
-import type { Layer } from "../Layer";
-import { Vec2D } from "../types";
+import type { Vec2D } from "../../Types";
 import { Clamp } from "../Utils";
 
 export class Cursor {
@@ -25,7 +24,6 @@ export class Cursor {
 	}
 	constructor(
 		private curCtx: CanvasRenderingContext2D,
-		private layers: Layer[],
 		private _curPos: Vec2D = { x: 0, y: 0 },
 		private _lastPos: Vec2D = { x: 0, y: 0 },
 		private _ridus: number = 2,

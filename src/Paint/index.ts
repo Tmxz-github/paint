@@ -2,18 +2,18 @@ import { Cursor } from "./Cursor";
 import { Layer } from "./Layer";
 import {
 	BoundBox,
-	Vec2D,
+	ClipedArea,
 	type ZoomOptions,
 	type PaintState,
 	type PaintEvents,
 	type AnyObject,
-	ClipedArea,
 	type PaintPointerEvent,
-} from "./types";
+} from "../Types";
+import { Vec2D } from "../Types/vec2d";
 import { KeyListener } from "./Input/key-listener";
 import { Line } from "./Line";
 import { Pen } from "./Brushes";
-import { PointerListener, type MyPointerEvent } from "./Input/pointer-listener";
+import { PointerListener } from "./Input/pointer-listener";
 import type { Brush, BrushStyle, BrushTypes } from "./Brushes";
 import { CircleClamp, Clamp, createMirror } from "./Utils";
 import { CanvasHistory } from "./CanvasHistory";
@@ -81,7 +81,7 @@ export class Paint {
 	}
 
 	public plugins: PaintPlugin[] = [];
-	public paintPointerEvents: [Partial<PaintPointerEvent>, Partial<PaintPointerEvent>];
+	public paintPointerEvents!: [Partial<PaintPointerEvent>, Partial<PaintPointerEvent>];
 
 	public containerEl: HTMLElement;
 	/** canvas html 元素 */
@@ -93,7 +93,7 @@ export class Paint {
 	/** 绘制历史，只记录笔的绘制 */
 	public canvasHistory: CanvasHistory;
 	/** 每一笔绘制后的包围盒 */
-	public lineBBox: BoundBox = { top: Infinity, bottom: 0, left: Infinity, right: 0 };
+	public lineBBox: BoundBox = BoundBox.Empty;
 	/** 缩放比例 */
 	public _scaleValue: number = 1;
 	/** 缩放步进 */
@@ -109,9 +109,9 @@ export class Paint {
 	/** 画布背景色 */
 	public canvacBackgroundColor: string = "#ffffff";
 	/** 光标在 viewCtx 对应 canvas 上的坐标 */
-	public cursorOffset: Vec2D = new Vec2D();
+	public cursorOffset: Vec2D = { x: 0, y: 0 };
 	/** viewCtx 对应 canvas 偏移量 */
-	public canvasOffset: Vec2D = new Vec2D();
+	public canvasOffset: Vec2D = { x: 0, y: 0 };
 	public minScaleValue: number = 0.1;
 	public maxScaleValue: number = 64;
 	public _rotateDegree = 0;
@@ -122,15 +122,15 @@ export class Paint {
 	 */
 	public cursorIn: boolean = false;
 	/** 光标在 canvas 元素上的坐标 */
-	public pointerPos: Vec2D = new Vec2D();
+	public pointerPos: Vec2D = { x: 0, y: 0 };
 	/** 画布准备拖动 */
 	public _grabReady: boolean = false;
 	/** 画布拖动种 */
 	public _grabbing: boolean = false;
 	/** 画布拖动开始坐标，每次拖动时都会变化 */
-	public grabStartPos: Vec2D = new Vec2D();
+	public grabStartPos: Vec2D = { x: 0, y: 0 };
 	/** 剪切内容拖动开始坐标，每次拖动时都会变化 */
-	public clipGrabStartPos: Vec2D = new Vec2D();
+	public clipGrabStartPos: Vec2D = { x: 0, y: 0 };
 	/** 笔刷，类似套索等工具也是笔刷 */
 	public brush: Brush;
 	/** 同步笔刷 */
@@ -150,7 +150,7 @@ export class Paint {
 	/** 画板是否处于光标按下状态 && 当前图层是否可见 && 非拖拽模式 */
 	public _canDraw: boolean = true;
 	/** 剪切框内容以及范围 */
-	public readonly clipedArea: ClipedArea = new ClipedArea();
+	public readonly clipedArea: ClipedArea = ClipedArea.Empty;
 	public drawMode: DrawMode = new DrawMode(this);
 	public mode: PaintMode = this.drawMode;
 	public baseMode: BaseMode = new BaseMode(this);
@@ -214,7 +214,7 @@ export class Paint {
 
 		this.line = new Line(this.mirrorCtx, this.mirrorBrush);
 
-		this.cursor = new Cursor(this.viewCtx, this.layers);
+		this.cursor = new Cursor(this.viewCtx);
 
 		this.eventBind();
 
@@ -232,7 +232,10 @@ export class Paint {
 
 	public initBackLayers() {
 		const lassoLayer = new Layer({ width: this.width, height: this.height });
-		const lassoRectLayer = new Layer({ width: this.width, height: this.height });
+		const lassoRectLayer = new Layer({
+			width: this.width,
+			height: this.height,
+		});
 
 		this.backLayers[LASSO_LAYER_INDEX] = lassoLayer;
 		this.backLayers[LASSO_RECT_INDEX] = lassoRectLayer;

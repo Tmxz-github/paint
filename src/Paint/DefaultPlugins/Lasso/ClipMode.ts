@@ -2,17 +2,17 @@ import type { PaintMode } from "../../Mode";
 import type { Paint } from "../..";
 import { LassoBrush } from "./LassoBrush";
 import type { MyPointerEvent } from "../../Input/pointer-listener";
-import { Vec2D } from "../../types";
+import { Vec2D } from "../../../Types/vec2d";
 import { deepClone } from "../../Utils";
 import type { Lasso } from ".";
 
 export class ClipMode implements PaintMode {
 	constructor(
 		private ctx: Paint,
-		env: Lasso,
+		_env: Lasso,
 	) {}
 
-	onPointerMove({ e, pos }: MyPointerEvent) {
+	onPointerMove({ pos }: MyPointerEvent) {
 		if (this.ctx.canDraw && this.ctx.state === "CLIP") {
 			this.ctx.brush.drawDot(this.ctx.cursor.curPos);
 			return;
@@ -40,7 +40,6 @@ export class ClipMode implements PaintMode {
 					x: inverse.a * rawOffset.x + inverse.c * rawOffset.y,
 					y: inverse.b * rawOffset.x + inverse.d * rawOffset.y,
 				};
-
 				(this.ctx.brush as LassoBrush).startPoint = Vec2D.Add((this.ctx.brush as LassoBrush).startPoint, offset);
 
 				const lassoCtx = this.ctx.backLayers[0].vCtx;
@@ -63,7 +62,7 @@ export class ClipMode implements PaintMode {
 			this.ctx.clipGrabStartPos = pos;
 		}
 	}
-	onPointerUp(ev: MyPointerEvent) {
+	onPointerUp(_ev: MyPointerEvent) {
 		if (this.ctx.state === "CLIP") {
 			(this.ctx.brush as LassoBrush).drawDot(this.ctx.cursor.curPos);
 		}
@@ -71,7 +70,7 @@ export class ClipMode implements PaintMode {
 			(this.ctx.brush as LassoBrush).drawDot(undefined, false);
 		}
 	}
-	onPointerLeave(ev: MyPointerEvent) {}
-	onPointerEnter(ev: MyPointerEvent) {}
-	onWheel(ev: MyPointerEvent) {}
+	onPointerLeave(_ev: MyPointerEvent) {}
+	onPointerEnter(_ev: MyPointerEvent) {}
+	onWheel(_ev: MyPointerEvent) {}
 }
