@@ -23,11 +23,11 @@ export class PointsLine {
 			if (i < points.length - 1) {
 				length = Vec2D.Distance(points[i], points[i + 1]);
 			}
-            this.segmentLines[i] = {
+			this.segmentLines[i] = {
 				x: points[i].x,
 				y: points[i].y,
 				length: length,
-			}
+			};
 		}
 	}
 

@@ -34,7 +34,7 @@ export class CanvasHistory {
 			BoundBox.left,
 			BoundBox.top,
 			BoundBox.right - BoundBox.left,
-			BoundBox.bottom - BoundBox.top
+			BoundBox.bottom - BoundBox.top,
 		);
 		const diff = data.diff1.pixelDiff;
 		for (const d of diff) {
@@ -55,7 +55,7 @@ export class CanvasHistory {
 					diff1: data.diff2,
 					diff2: undefined,
 				},
-				undo
+				undo,
 			);
 		}
 	}
@@ -65,13 +65,13 @@ export class CanvasHistory {
 			lineBBox.left,
 			lineBBox.top,
 			lineBBox.right - lineBBox.left,
-			lineBBox.bottom - lineBBox.top
+			lineBBox.bottom - lineBBox.top,
 		);
 		const changedData = currentLayer.vCtx.getImageData(
 			lineBBox.left,
 			lineBBox.top,
 			lineBBox.right - lineBBox.left,
-			lineBBox.bottom - lineBBox.top
+			lineBBox.bottom - lineBBox.top,
 		);
 
 		const pixelDiff: PixelDiff[] = [];

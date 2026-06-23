@@ -336,7 +336,7 @@ export class KeyListener {
 				? cb.bind(env, ...args)
 				: () => {
 						cb(...args);
-				  }
+					},
 		);
 	}
 

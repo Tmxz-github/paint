@@ -30,7 +30,7 @@ export class Pen implements Brush {
 		private burshCtx: CanvasRenderingContext2D,
 		private _size: number,
 		private _thickness: number,
-		private _color: string
+		private _color: string,
 	) {}
 
 	public drawDot(point: Vec2D, options?: BrushStyle) {

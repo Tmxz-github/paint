@@ -10,16 +10,16 @@ export class DrawMode implements PaintMode {
 	onPointerMove(ev: MyPointerEvent) {
 		if (this.ctx.canDraw) {
 			this.ctx.lineBBox.left = Math.floor(
-				Math.min(this.ctx.lineBBox.left, this.ctx.cursor.curPos.x - this.ctx.brush.size)
+				Math.min(this.ctx.lineBBox.left, this.ctx.cursor.curPos.x - this.ctx.brush.size),
 			);
 			this.ctx.lineBBox.right = Math.ceil(
-				Math.max(this.ctx.lineBBox.right, this.ctx.cursor.curPos.x + this.ctx.brush.size)
+				Math.max(this.ctx.lineBBox.right, this.ctx.cursor.curPos.x + this.ctx.brush.size),
 			);
 			this.ctx.lineBBox.top = Math.floor(
-				Math.min(this.ctx.lineBBox.top, this.ctx.cursor.curPos.y - this.ctx.brush.size)
+				Math.min(this.ctx.lineBBox.top, this.ctx.cursor.curPos.y - this.ctx.brush.size),
 			);
 			this.ctx.lineBBox.bottom = Math.ceil(
-				Math.max(this.ctx.lineBBox.bottom, this.ctx.cursor.curPos.y + this.ctx.brush.size)
+				Math.max(this.ctx.lineBBox.bottom, this.ctx.cursor.curPos.y + this.ctx.brush.size),
 			);
 			this.ctx.draw(this.ctx.cursor.curPos);
 			this.drawing = true;

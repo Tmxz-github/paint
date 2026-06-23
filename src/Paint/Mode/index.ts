@@ -54,11 +54,11 @@ export class BaseMode implements PaintMode {
 					scaleStep: this.ctx.scaleStep * this.ctx.scaleValue,
 					center: { x: e.offsetX, y: e.offsetY },
 					smooth: true,
-			  })
+				})
 			: this.ctx.zoomOut({
 					scaleStep: this.ctx.scaleStep * this.ctx.scaleValue,
 					center: { x: e.offsetX, y: e.offsetY },
 					smooth: true,
-			  });
+				});
 	}
 }

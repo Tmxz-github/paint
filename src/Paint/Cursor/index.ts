@@ -29,7 +29,7 @@ export class Cursor {
 		private _curPos: Vec2D = { x: 0, y: 0 },
 		private _lastPos: Vec2D = { x: 0, y: 0 },
 		private _ridus: number = 2,
-		public cursorLineWith: number = 0.1
+		public cursorLineWith: number = 0.1,
 	) {}
 
 	render(pos?: Vec2D) {
