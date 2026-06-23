@@ -1,6 +1,7 @@
 type Canvas = OffscreenCanvas | HTMLCanvasElement;
 type context2D = OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
 
+/** 传入高宽或者imageData获取canvasContext */
 export function createCanvasContext(imagedata: ImageData): context2D;
 export function createCanvasContext(width: number, height: number): context2D;
 export function createCanvasContext(widthOrImageData: number | ImageData, height?: number): context2D {

@@ -1,6 +1,5 @@
 import type { Vec2D } from "../types";
 import { Pen } from "./Pen";
-import { Eraser } from "./Eraser";
 export interface BrushStyle {
 	size: number;
 	color: string;
@@ -16,4 +15,4 @@ export interface Brush {
 
 export type BurshTypes = "PEN" | "ERASER" | "LASSO";
 
-export { Pen, Eraser };
+export { Pen };

@@ -1,8 +1,8 @@
-import type { Brush } from ".";
-import type { Vec2D } from "../types";
-import { Clamp } from "../Utils";
+import type { Brush } from "../../Brushes";
+import type { Vec2D } from "../../types";
+import { Clamp } from "../../Utils";
 
-export class Eraser implements Brush {
+export class EraserBrush implements Brush {
 	private _color: string = "white";
 	// 应同画布背景色相同
 	public get color(): string {

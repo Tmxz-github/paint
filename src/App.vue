@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { Paint } from "./Paint";
+import { Eraser } from "./Paint/DefaultPlugins/Eraser";
+import { Lasso } from "./Paint/DefaultPlugins/Lasso";
 
 const canvas = ref<HTMLDivElement>();
 const paint = ref<Paint>();
@@ -13,6 +15,7 @@ onMounted(() => {
 	paint.value = new Paint({
 		containerEl: canvas.value,
 		width: 1024,
+		use: [new Eraser, new Lasso]
 	});
 	paint.value.pointerListener.on("MOVE", () => {
 		const div = document.querySelector("#pos")!;

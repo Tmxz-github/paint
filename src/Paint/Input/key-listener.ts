@@ -170,7 +170,7 @@ interface afterAltShift {
 }
 
 interface returnOn {
-	on: (key: KeyboardKey, cb: () => void, env?: object) => void;
+	on: (key: KeyboardKey, cb: Function, args?: any[], env?: object) => void;
 }
 
 export class KeyListener {
@@ -207,7 +207,7 @@ export class KeyListener {
 	private fnKeyHandler(key: keyof KeyState) {
 		this.curKeyState[key] = true;
 	}
-	private keyHandler(key?: string, cb?: () => void) {
+	private keyHandler(key?: string, cb?: Function) {
 		if (cb) {
 			const evKey = this.genEvKey(this.curKeyState, key);
 			let cbs = this.evs.get(evKey);
@@ -328,9 +328,16 @@ export class KeyListener {
 		return { on, control, alt };
 	}
 
-	on(key: KeyboardKey, cb: () => void, env?: object) {
+	on(key: KeyboardKey, cb: Function, args: any[] = [], env?: object) {
 		key = key.toLowerCase() as KeyboardKey;
-		this.keyHandler(key, env ? cb.bind(env) : cb);
+		this.keyHandler(
+			key,
+			env
+				? cb.bind(env, ...args)
+				: () => {
+						cb(...args);
+				  }
+		);
 	}
 
 	offAll(key: KeyboardKey) {

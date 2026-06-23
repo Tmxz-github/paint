@@ -1,8 +1,8 @@
-import type { Brush } from ".";
-import { TRANSPARENT } from "../constants";
-import { BoundBox, Vec2D } from "../types";
+import type { Brush } from "../../Brushes";
+import { TRANSPARENT } from "../../constants";
+import { BoundBox, Vec2D } from "../../types";
 
-export class Lasso implements Brush {
+export class LassoBrush implements Brush {
 	public get startPoint(): Vec2D {
 		return this._startPoint;
 	}

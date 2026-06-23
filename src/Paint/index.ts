@@ -1,27 +1,34 @@
 import { Cursor } from "./Cursor";
 import { Layer } from "./Layer";
-import { BoundBox, Vec2D, type ZoomOptions, type PaintState } from "./types";
+import {
+	BoundBox,
+	Vec2D,
+	type ZoomOptions,
+	type PaintState,
+	type PaintEvents,
+	type AnyObject,
+	ClipedArea,
+	type PaintPointerEvent,
+} from "./types";
 import { KeyListener } from "./Input/key-listener";
 import { Line } from "./Line";
-import { Pen, Eraser } from "./Brushes";
-import { PointerListener } from "./Input/pointer-listener";
+import { Pen } from "./Brushes";
+import { PointerListener, type MyPointerEvent } from "./Input/pointer-listener";
 import type { Brush, BrushStyle, BurshTypes } from "./Brushes";
-import { CircleClamp, Clamp, createMirror, deepClone } from "./Utils";
+import { CircleClamp, Clamp, createMirror } from "./Utils";
 import { CanvasHistory } from "./CanvasHistory";
-import { Lasso } from "./Brushes/Lasso";
 import { createCanvasContext } from "./Utils/canvas";
 import { BaseMode, type PaintMode } from "./Mode";
 import { DrawMode } from "./Mode/drawMode";
-import { ClipMode } from "./Mode/clipMode";
+import type { PaintPlugin } from "./DefaultPlugins";
+import { LASSO_LAYER_INDEX, LASSO_RECT_INDEX } from "./constants";
 
-interface PaintOption {
+export interface PaintOption {
 	containerEl: HTMLElement;
 	width?: number;
 	height?: number;
+	use?: PaintPlugin[];
 }
-
-const LASSO_LAYER_INDEX = 0;
-const LASSO_RECT_INDEX = 1;
 
 export class Paint {
 	public get scaleValue(): number {
@@ -73,39 +80,42 @@ export class Paint {
 		return this.canvasReady && this.currentLayer.visiable && !this.grabbing;
 	}
 
+	public plugins: PaintPlugin[] = [];
+	public paintPointerEvents: [Partial<PaintPointerEvent>, Partial<PaintPointerEvent>];
+
 	public containerEl: HTMLElement;
 	/** canvas html 元素 */
-	private canvasElement: HTMLCanvasElement;
+	public canvasElement: HTMLCanvasElement;
 	/** 视窗绘制上下文，只负责最终渲染，所有绘制应先在其余离线 canvas 上绘制后再合并绘制到 viewCtx 上 */
-	private viewCtx: CanvasRenderingContext2D;
+	public viewCtx: CanvasRenderingContext2D;
 	/** 同步 currentLayer  */
-	private mirrorCtx: CanvasRenderingContext2D;
+	public mirrorCtx: CanvasRenderingContext2D;
 	/** 绘制历史，只记录笔的绘制 */
 	public canvasHistory: CanvasHistory;
 	/** 每一笔绘制后的包围盒 */
 	public lineBBox: BoundBox = { top: Infinity, bottom: 0, left: Infinity, right: 0 };
 	/** 缩放比例 */
-	private _scaleValue: number = 1;
+	public _scaleValue: number = 1;
 	/** 缩放步进 */
 	public scaleStep: number = 0.2;
 	/** 设置新的缩放比例前，存储的上次缩放比例 */
-	private preScaleValue: number = 1;
+	public preScaleValue: number = 1;
 	/** 光标 */
 	public cursor: Cursor;
 	/** 画布已经点击 */
 	public canvasReady: boolean = false;
 	/** 放置画布的画板背景色 */
-	private backgroundColor: string = "#f0f0f0";
+	public backgroundColor: string = "#f0f0f0";
 	/** 画布背景色 */
-	private canvacBackgroundColor: string = "#ffffff";
+	public canvacBackgroundColor: string = "#ffffff";
 	/** 光标在 viewCtx 对应 canvas 上的坐标 */
-	private cursorOffset: Vec2D = new Vec2D();
+	public cursorOffset: Vec2D = new Vec2D();
 	/** viewCtx 对应 canvas 偏移量 */
-	private canvasOffset: Vec2D = new Vec2D();
-	private minScaleValue: number = 0.1;
-	private maxScaleValue: number = 64;
-	private _rotateDegree = 0;
-	private _rotateRadian = 0;
+	public canvasOffset: Vec2D = new Vec2D();
+	public minScaleValue: number = 0.1;
+	public maxScaleValue: number = 64;
+	public _rotateDegree = 0;
+	public _rotateRadian = 0;
 	/**
 	 * todo
 	 * 页面加载时如果光标在元素内则需要动一下 cursor 才能渲染
@@ -114,9 +124,9 @@ export class Paint {
 	/** 光标在 canvas 元素上的坐标 */
 	public pointerPos: Vec2D = new Vec2D();
 	/** 画布准备拖动 */
-	private _grabReady: boolean = false;
+	public _grabReady: boolean = false;
 	/** 画布拖动种 */
-	private _grabbing: boolean = false;
+	public _grabbing: boolean = false;
 	/** 画布拖动开始坐标，每次拖动时都会变化 */
 	public grabStartPos: Vec2D = new Vec2D();
 	/** 剪切内容拖动开始坐标，每次拖动时都会变化 */
@@ -124,33 +134,26 @@ export class Paint {
 	/** 笔刷，类似套索等工具也是笔刷 */
 	public brush: Brush;
 	/** 同步笔刷 */
-	private mirrorBursh: Brush;
+	public mirrorBursh: Brush;
 	/** 鼠标移动时划过的线，本质是点集合 */
 	public readonly line: Line;
 	/** 笔刷表 */
-	private readonly brushes: Map<BurshTypes, Brush> = new Map();
+	public readonly brushes: Map<BurshTypes, Brush> = new Map();
 	public readonly pointerListener: PointerListener;
 	public state: PaintState = "DRAW";
 	/** 开始修改剪切内容 */
 	public clipStarted: boolean = false;
 	/** 确认修改的剪切内容 */
-	private clipped: boolean = false;
+	public clipped: boolean = false;
 	/** 一些绘制内容不同的图层，例如剪切框、剪切框内容 */
 	public backLayers: Layer[] = [];
 	/** 画板是否处于光标按下状态 && 当前图层是否可见 && 非拖拽模式 */
-	private _canDraw: boolean = true;
+	public _canDraw: boolean = true;
 	/** 剪切框内容以及范围 */
-	private clipedArea: {
-		boundBox: BoundBox;
-		imageData: ImageData;
-	} = {
-		boundBox: new BoundBox(),
-		imageData: new ImageData(1, 1),
-	};
-	private drawMode: DrawMode = new DrawMode(this);
-	private clipMode: ClipMode = new ClipMode(this);
-	private mode: PaintMode = this.drawMode;
-	private baseMode: BaseMode = new BaseMode(this);
+	public readonly clipedArea: ClipedArea = new ClipedArea();
+	public drawMode: DrawMode = new DrawMode(this);
+	public mode: PaintMode = this.drawMode;
+	public baseMode: BaseMode = new BaseMode(this);
 
 	/** 处理键盘绑定 */
 	public readonly keyListener: KeyListener;
@@ -161,6 +164,9 @@ export class Paint {
 
 	constructor(option: PaintOption) {
 		let { containerEl, width, height } = option;
+		if (option.use) {
+			this.plugins = option.use;
+		}
 		this.containerEl = containerEl;
 		this.containerEl.tabIndex = -1;
 		this.containerEl.focus();
@@ -213,20 +219,18 @@ export class Paint {
 		this.eventBind();
 
 		this.applyTransform(this._rotateDegree, this._scaleValue, this.canvasOffset);
+
+		for (const plugin of this.plugins) {
+			plugin.apply(this);
+		}
 	}
 
-	private initBrushes() {
+	public initBrushes() {
 		const pen = new Pen(this.mirrorCtx, 2, 2, "black");
 		this.brushes.set("PEN", pen);
-
-		const eraser = new Eraser(this.mirrorCtx, 2, 0.5);
-		this.brushes.set("ERASER", eraser);
-
-		const lasso = new Lasso(this.backLayers[LASSO_RECT_INDEX].vCtx as CanvasRenderingContext2D);
-		this.brushes.set("LASSO", lasso);
 	}
 
-	private initBackLayers() {
+	public initBackLayers() {
 		const lassoLayer = new Layer({ width: this.width, height: this.height });
 		const lassoRectLayer = new Layer({ width: this.width, height: this.height });
 
@@ -234,7 +238,7 @@ export class Paint {
 		this.backLayers[LASSO_RECT_INDEX] = lassoRectLayer;
 	}
 
-	private eventBind() {
+	public eventBind() {
 		this.pointerListener.on("MOVE", (ev) => {
 			if (ev.e.movementX === 0 && ev.e.movementY === 0) return;
 			this.mode.onPointerMove(ev);
@@ -278,40 +282,12 @@ export class Paint {
 			this.renderLayers();
 			this.currentLayer.preCtx.putImageData(this.getImageData(), 0, 0);
 		});
-		this.keyListener.on("w:down", this.zoomIn, this);
-		this.keyListener.on("s:down", this.zoomOut, this);
-		this.keyListener.on("Enter:up", () => {
-			if (this.state === "CLIP") {
-				this.state = "CLIPPING";
-				this.clipStarted = true;
-				const boundBox = (this.brush as Lasso).boundBox;
-				this.clipedArea.boundBox = boundBox;
-				this.clipedArea.imageData = this.currentLayer.vCtx.getImageData(
-					boundBox.left,
-					boundBox.top,
-					boundBox.right - boundBox.left,
-					boundBox.bottom - boundBox.top
-				);
-				(this.brush as Lasso).setMinBoundBox(this.clipedArea.imageData);
-				this.clipedArea.imageData = this.currentLayer.vCtx.getImageData(
-					boundBox.left,
-					boundBox.top,
-					boundBox.right - boundBox.left,
-					boundBox.bottom - boundBox.top
-				);
-			} else if (this.state === "CLIPPING") {
-				(this.brush as Lasso).drawDot(undefined, false);
-				this.putContent((this.brush as Lasso).boundBox);
-				this.canvasHistory.commitChange(this.clipedArea.boundBox, this.currentLayer, (this.brush as Lasso).boundBox);
-				this.currentLayer.preCtx.putImageData(this.getImageData(), 0, 0);
-				this.clipped = true;
-				this.state = "CLIP";
-			}
-		});
+		this.keyListener.on("w:down", this.zoomIn);
+		this.keyListener.on("s:down", this.zoomOut);
 	}
 
 	/** 渲染放置画布的画板 */
-	private renderBackground() {
+	public renderBackground() {
 		this.viewCtx.save();
 		this.viewCtx.setTransform(1, 0, 0, 1, 0, 0);
 		this.viewCtx.fillStyle = this.backgroundColor;
@@ -320,17 +296,28 @@ export class Paint {
 	}
 
 	/** 光标是否移出画布 */
-	private outCanvas(pos: Vec2D) {
+	public outCanvas(pos: Vec2D) {
 		return pos.x > this.canvasElement.width || pos.x < 0 || pos.y > this.canvasElement.height || pos.y < 0;
 	}
 
+	/** 触发画板事件 */
+	public emitEvent(name: PaintEvents, data: AnyObject = {}) {
+		for (const plugin of this.plugins) {
+			plugin.acceptEvent(name, data);
+		}
+	}
+
+	/** 拖动剪切区域 */
 	public grabContent(boundBox: BoundBox) {
 		const lassoCtx = this.backLayers[LASSO_LAYER_INDEX].vCtx;
 		const targetPos = { x: boundBox.left, y: boundBox.top };
 		lassoCtx.putImageData(this.clipedArea.imageData, targetPos.x, targetPos.y);
 	}
 
-	private putContent(boundBox: BoundBox) {
+	/**
+	 * 将剪切内容放置
+	 */
+	public putContent(boundBox: BoundBox) {
 		const targetPos = { x: boundBox.left, y: boundBox.top };
 		const tmpContext = createCanvasContext(this.clipedArea.imageData);
 		const lassoCtx = this.backLayers[LASSO_LAYER_INDEX].vCtx;
@@ -338,10 +325,16 @@ export class Paint {
 		this.currentLayer.vCtx.drawImage(tmpContext.canvas, targetPos.x - 0.5, targetPos.y - 0.5);
 	}
 
+	/**
+	 * 给定坐标是否在给定包围盒内
+	 */
 	public inBBox(pos: Vec2D, boundBox: BoundBox) {
 		return pos.x > boundBox.left && pos.x < boundBox.right && pos.y > boundBox.top && pos.y < boundBox.bottom;
 	}
 
+	/**
+	 * 获取canvas的imagedata
+	 */
 	public getImageData(sx?: number, sy?: number, sw?: number, sh?: number, settings?: ImageDataSettings) {
 		if (sx === undefined) sx = 0;
 		if (sy === undefined) sy = 0;
@@ -370,16 +363,8 @@ export class Paint {
 	}
 
 	public swtichBursh(type: BurshTypes) {
-		if (type === "LASSO") {
-			this.state = "CLIP";
-			this.clipped = false;
-			this.mode = this.clipMode;
-		} else {
-			this.backLayers[LASSO_RECT_INDEX].vCtx.clearRect(0, 0, this.width, this.height);
-			this.backLayers[LASSO_LAYER_INDEX].vCtx.clearRect(0, 0, this.width, this.height);
-			if (!this.clipped) {
-				this.putContent(this.clipedArea.boundBox);
-			}
+		this.emitEvent("SWITCH_BURSH", { type });
+		if (type === "PEN") {
 			this.state = "DRAW";
 			this.renderLayers();
 			this.mode = this.drawMode;
@@ -516,7 +501,7 @@ export class Paint {
 		let i = 0;
 		const frame = () => {
 			if (i >= 10) return;
-			this._scaleValue += scaleStep / 5;
+			this._scaleValue += scaleStep! / 5;
 			if (this._scaleValue === this.preScaleValue) {
 				return;
 			}

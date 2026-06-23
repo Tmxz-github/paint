@@ -1,3 +1,5 @@
+import type { MyPointerEvent } from "./Input/pointer-listener";
+
 export interface Vec2D {
 	x: number;
 	y: number;
@@ -23,6 +25,11 @@ export class BoundBox {
 	right: number = 0;
 	top: number = 0;
 	bottom: number = 0;
+}
+
+export class ClipedArea {
+	boundBox: BoundBox = new BoundBox();
+	imageData: ImageData = new ImageData(1, 1);
 }
 export class Vec2D {
 	x = 0;
@@ -87,4 +94,17 @@ export interface DirPoint {
 	x: number;
 	y: number;
 	dir: Vec2D;
+}
+
+export type AnyObject = Record<string, any>;
+
+export type PaintEvents = "SWITCH_BURSH";
+
+export interface PaintPointerEvent {
+	onPointerMove: (e: MyPointerEvent) => void;
+	onPointerDown: (e: MyPointerEvent) => void;
+	onPointerUp: (e: MyPointerEvent) => void;
+	onPointerLeave: (e: MyPointerEvent) => void;
+	onPointerEnter: (e: MyPointerEvent) => void;
+	onWheel: (e: MyPointerEvent) => void;
 }
