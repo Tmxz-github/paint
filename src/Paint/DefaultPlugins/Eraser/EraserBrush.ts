@@ -3,8 +3,7 @@ import type { Vec2D } from "../../types";
 import { Clamp } from "../../Utils";
 
 export class EraserBrush implements Brush {
-	private _color: string = "white";
-	// 应同画布背景色相同
+	private _color: string = "transparent";
 	public get color(): string {
 		return this._color;
 	}
@@ -27,13 +26,17 @@ export class EraserBrush implements Brush {
 		this.burshCtx.lineWidth = value;
 		this._size = value;
 	}
-	constructor(private burshCtx: CanvasRenderingContext2D, private _size: number, private _thickness: number = 0.5) {}
+	constructor(
+		private burshCtx: CanvasRenderingContext2D,
+		private _size: number,
+		private _thickness: number = 1,
+	) {}
 
 	public drawDot(point: Vec2D) {
 		this.burshCtx.save();
-		this.burshCtx.beginPath();
-		this.burshCtx.fillStyle = this._color;
+		this.burshCtx.globalCompositeOperation = "destination-out";
 		this.burshCtx.globalAlpha = this._thickness;
+		this.burshCtx.beginPath();
 		this.burshCtx.arc(point.x, point.y, this._size, 0, Math.PI * 2);
 		this.burshCtx.fill();
 

@@ -39,20 +39,26 @@ export class Lasso extends PaintPlugin {
 		if (instance.state === "CLIP") {
 			instance.state = "CLIPPING";
 			instance.clipStarted = true;
-			const boundBox = (instance.brush as LassoBrush).boundBox;
-			instance.clipedArea.boundBox = boundBox;
+			const lassoBrush = instance.brush as LassoBrush;
+			// 保存原始 boundBox(setMinBoundBox 会修改 LassoBrush.boundBox 的引用值)
+			const origLeft = lassoBrush.boundBox.left;
+			const origTop = lassoBrush.boundBox.top;
+			const origRight = lassoBrush.boundBox.right;
+			const origBottom = lassoBrush.boundBox.bottom;
+
 			instance.clipedArea.imageData = instance.currentLayer.vCtx.getImageData(
-				boundBox.left,
-				boundBox.top,
-				boundBox.right - boundBox.left,
-				boundBox.bottom - boundBox.top
+				origLeft,
+				origTop,
+				origRight - origLeft,
+				origBottom - origTop,
 			);
-			(instance.brush as LassoBrush).setMinBoundBox(instance.clipedArea.imageData);
+			lassoBrush.setMinBoundBox(instance.clipedArea.imageData);
+			instance.clipedArea.boundBox = lassoBrush.boundBox;
 			instance.clipedArea.imageData = instance.currentLayer.vCtx.getImageData(
-				boundBox.left,
-				boundBox.top,
-				boundBox.right - boundBox.left,
-				boundBox.bottom - boundBox.top
+				lassoBrush.boundBox.left,
+				lassoBrush.boundBox.top,
+				lassoBrush.boundBox.right - lassoBrush.boundBox.left,
+				lassoBrush.boundBox.bottom - lassoBrush.boundBox.top,
 			);
 		} else if (instance.state === "CLIPPING") {
 			(instance.brush as LassoBrush).drawDot(undefined, false);
@@ -60,7 +66,7 @@ export class Lasso extends PaintPlugin {
 			instance.canvasHistory.commitChange(
 				instance.clipedArea.boundBox,
 				instance.currentLayer,
-				(instance.brush as LassoBrush).boundBox
+				(instance.brush as LassoBrush).boundBox,
 			);
 			instance.currentLayer.preCtx.putImageData(instance.getImageData(), 0, 0);
 			this.clipped = true;

@@ -22,27 +22,18 @@ export class LassoBrush implements Brush {
 
 	private drawRect(point1: Vec2D, point2: Vec2D): BoundBox {
 		if (Vec2D.Equal(point1, point2)) return new BoundBox();
-		let leftTop: Vec2D = new Vec2D();
-		let rightBottom: Vec2D = new Vec2D();
-		if (point1.x < point2.x && point1.y < point2.y) {
-			leftTop = point1;
-			rightBottom = point2;
-		} else {
-			leftTop = point2;
-			rightBottom = point1;
-		}
+		const left = Math.min(point1.x, point2.x);
+		const right = Math.max(point1.x, point2.x);
+		const top = Math.min(point1.y, point2.y);
+		const bottom = Math.max(point1.y, point2.y);
 		this.burshCtx.beginPath();
-		this.burshCtx.rect(leftTop.x, leftTop.y, rightBottom.x - leftTop.x, rightBottom.y - leftTop.y);
+		this.burshCtx.rect(left, top, right - left, bottom - top);
 		this.burshCtx.stroke();
 
-		return {
-			top: leftTop.y,
-			bottom: rightBottom.y,
-			left: leftTop.x,
-			right: rightBottom.x,
-		};
+		return { top, bottom, left, right };
 	}
 
+	/** 扫描 ImageData 四边，将 boundBox 收缩至仅含非透明像素的最小范围 */
 	public setMinBoundBox(imageData: ImageData) {
 		const width = imageData.width;
 		const height = imageData.height;
@@ -53,10 +44,10 @@ export class LassoBrush implements Brush {
 		let xr = width * 4 - 1;
 		const pixelLength = width * 4;
 
-		// top
+		// 从上往下扫描，找到第一行非透明像素
 		for (let x = 0; x < pixelLength; x += 4) {
 			if (imageData.data[x + 3 + yt * pixelLength] !== TRANSPARENT) {
-				this.boundBox.top += yt - 1;
+				this.boundBox.top += yt;
 				break;
 			}
 			if (x === pixelLength - 4) {
@@ -66,10 +57,10 @@ export class LassoBrush implements Brush {
 			}
 		}
 
-		// bottom
+		// 从下往上扫描，找到最后一行非透明像素
 		for (let x = 0; x < pixelLength; x += 4) {
 			if (imageData.data[x + 3 + yb * pixelLength] !== TRANSPARENT) {
-				this.boundBox.bottom -= height - yb;
+				this.boundBox.bottom -= height - yb - 1;
 				break;
 			}
 			if (x === pixelLength - 4) {
@@ -79,10 +70,10 @@ export class LassoBrush implements Brush {
 			}
 		}
 
-		// left
+		// 从左往右扫描，找到第一列非透明像素
 		for (let y = 0; y < height; y += 1) {
 			if (imageData.data[xl + 3 + y * pixelLength] !== TRANSPARENT) {
-				this.boundBox.left += xl / 4 - 1;
+				this.boundBox.left += xl / 4;
 				break;
 			}
 			if (y === height - 1) {
@@ -92,10 +83,10 @@ export class LassoBrush implements Brush {
 			}
 		}
 
-		// right
+		// 从右往左扫描，找到最后一列非透明像素
 		for (let y = 0; y < height; y += 1) {
 			if (imageData.data[xr + y * pixelLength] !== TRANSPARENT) {
-				this.boundBox.right -= width - xr / 4;
+				this.boundBox.right -= width - xr / 4 - 1;
 				break;
 			}
 			if (y === height - 1) {

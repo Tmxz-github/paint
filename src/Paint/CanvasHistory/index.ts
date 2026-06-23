@@ -118,7 +118,7 @@ export class CanvasHistory {
 			this.layerDiffs.splice(this.index + 1);
 		}
 		if (this.layerDiffs.length > this.stackMaxLength) {
-			this.layerDiffs.unshift();
+			this.layerDiffs.shift();
 		}
 	}
 
