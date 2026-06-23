@@ -29,7 +29,7 @@ const setLayer = (i: number) => {
 	if (!layer) return;
 	paint.value.currentLayer = layer;
 };
-const setLayerVisiable = (v: boolean, i: number) => {
+const setLayerVisible = (v: boolean, i: number) => {
 	if (!paint.value) return;
 	paint.value.setLayerInfo(v, i);
 };
@@ -41,9 +41,9 @@ const setLayerVisiable = (v: boolean, i: number) => {
 		<div>
 			<button @click="paint?.clearCurLayer">清空</button>
 			<button @click="paint?.addNewLayer">添加</button>
-			<button @click="paint?.swtichBursh('PEN')">笔</button>
-			<button @click="paint?.swtichBursh('ERASER')">橡皮</button>
-			<button @click="paint?.swtichBursh('LASSO')">套索</button>
+			<button @click="paint?.swtichBrush('PEN')">笔</button>
+			<button @click="paint?.swtichBrush('ERASER')">橡皮</button>
+			<button @click="paint?.swtichBrush('LASSO')">套索</button>
 			<button
 				@click="
 					paint?.setBrushStyle({
@@ -108,7 +108,7 @@ const setLayerVisiable = (v: boolean, i: number) => {
 				}"
 			>
 				<div
-					@click="setLayerVisiable(!paint?.currentLayer.visiable, i)"
+					@click="setLayerVisible(!paint?.currentLayer.visible, i)"
 					style="width: 100px; border: 1px solid black"
 				>
 					可见

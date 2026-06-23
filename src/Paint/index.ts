@@ -14,7 +14,7 @@ import { KeyListener } from "./Input/key-listener";
 import { Line } from "./Line";
 import { Pen } from "./Brushes";
 import { PointerListener, type MyPointerEvent } from "./Input/pointer-listener";
-import type { Brush, BrushStyle, BurshTypes } from "./Brushes";
+import type { Brush, BrushStyle, BrushTypes } from "./Brushes";
 import { CircleClamp, Clamp, createMirror } from "./Utils";
 import { CanvasHistory } from "./CanvasHistory";
 import { createCanvasContext } from "./Utils/canvas";
@@ -77,7 +77,7 @@ export class Paint {
 		this._rotateDegree = value;
 	}
 	public get canDraw() {
-		return this.canvasReady && this.currentLayer.visiable && !this.grabbing;
+		return this.canvasReady && this.currentLayer.visible && !this.grabbing;
 	}
 
 	public plugins: PaintPlugin[] = [];
@@ -134,11 +134,11 @@ export class Paint {
 	/** 笔刷，类似套索等工具也是笔刷 */
 	public brush: Brush;
 	/** 同步笔刷 */
-	public mirrorBursh: Brush;
+	public mirrorBrush: Brush;
 	/** 鼠标移动时划过的线，本质是点集合 */
 	public readonly line: Line;
 	/** 笔刷表 */
-	public readonly brushes: Map<BurshTypes, Brush> = new Map();
+	public readonly brushes: Map<BrushTypes, Brush> = new Map();
 	public readonly pointerListener: PointerListener;
 	public state: PaintState = "DRAW";
 	/** 开始修改剪切内容 */
@@ -210,9 +210,9 @@ export class Paint {
 		this.initBrushes();
 		this.brush = this.brushes.get("PEN")!;
 
-		this.mirrorBursh = createMirror<typeof this, Brush>(this, ["brush"]);
+		this.mirrorBrush = createMirror<typeof this, Brush>(this, ["brush"]);
 
-		this.line = new Line(this.mirrorCtx, this.mirrorBursh);
+		this.line = new Line(this.mirrorCtx, this.mirrorBrush);
 
 		this.cursor = new Cursor(this.viewCtx, this.layers);
 
@@ -362,7 +362,7 @@ export class Paint {
 		}
 	}
 
-	public swtichBursh(type: BurshTypes) {
+	public swtichBrush(type: BrushTypes) {
 		this.emitEvent("SWITCH_BURSH", { type });
 		if (type === "PEN") {
 			this.state = "DRAW";
@@ -426,7 +426,7 @@ export class Paint {
 		this.renderBackground();
 		this.clearView();
 		for (const layer of this.layers) {
-			if (layer.visiable) {
+			if (layer.visible) {
 				this.viewCtx.drawImage(layer.vCtx.canvas, 0, 0);
 			}
 		}
@@ -438,7 +438,7 @@ export class Paint {
 	public setLayerInfo(v: boolean, i: number) {
 		const layer = this.layers[i];
 		if (!layer) return;
-		layer.visiable = v;
+		layer.visible = v;
 		this.renderLayers();
 	}
 

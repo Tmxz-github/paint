@@ -13,6 +13,6 @@ export interface Brush {
 	drawDot: (point: Vec2D) => void;
 }
 
-export type BurshTypes = "PEN" | "ERASER" | "LASSO";
+export type BrushTypes = "PEN" | "ERASER" | "LASSO";
 
 export { Pen };

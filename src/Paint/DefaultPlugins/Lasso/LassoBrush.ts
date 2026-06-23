@@ -18,7 +18,7 @@ export class LassoBrush implements Brush {
 	public color = "transparent";
 	public size = -1;
 	public thickness = -1;
-	constructor(private burshCtx: CanvasRenderingContext2D) {}
+	constructor(private brushCtx: CanvasRenderingContext2D) {}
 
 	private drawRect(point1: Vec2D, point2: Vec2D): BoundBox {
 		if (Vec2D.Equal(point1, point2)) return new BoundBox();
@@ -26,9 +26,9 @@ export class LassoBrush implements Brush {
 		const right = Math.max(point1.x, point2.x);
 		const top = Math.min(point1.y, point2.y);
 		const bottom = Math.max(point1.y, point2.y);
-		this.burshCtx.beginPath();
-		this.burshCtx.rect(left, top, right - left, bottom - top);
-		this.burshCtx.stroke();
+		this.brushCtx.beginPath();
+		this.brushCtx.rect(left, top, right - left, bottom - top);
+		this.brushCtx.stroke();
 
 		return { top, bottom, left, right };
 	}
@@ -105,13 +105,13 @@ export class LassoBrush implements Brush {
 	}
 
 	public drawDot(point?: Vec2D, clear: boolean = true) {
-		this.burshCtx.save();
+		this.brushCtx.save();
 
-		this.burshCtx.fillStyle = "black";
-		this.burshCtx.lineDashOffset = 0.1;
+		this.brushCtx.fillStyle = "black";
+		this.brushCtx.lineDashOffset = 0.1;
 
 		if (clear) {
-			this.burshCtx.clearRect(0, 0, this.burshCtx.canvas.width, this.burshCtx.canvas.height);
+			this.brushCtx.clearRect(0, 0, this.brushCtx.canvas.width, this.brushCtx.canvas.height);
 		}
 		if (point) {
 			this.preEndpoint = {
@@ -122,6 +122,6 @@ export class LassoBrush implements Brush {
 		this.preEndpoint.x = Math.floor(this.preEndpoint.x) + 0.5;
 		this.preEndpoint.y = Math.floor(this.preEndpoint.y) + 0.5;
 		this.boundBox = this.drawRect(this.startPoint, this.preEndpoint);
-		this.burshCtx.restore();
+		this.brushCtx.restore();
 	}
 }

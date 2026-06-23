@@ -23,23 +23,23 @@ export class EraserBrush implements Brush {
 	}
 	public set size(value: number) {
 		value = Clamp(value, 1, 128);
-		this.burshCtx.lineWidth = value;
+		this.brushCtx.lineWidth = value;
 		this._size = value;
 	}
 	constructor(
-		private burshCtx: CanvasRenderingContext2D,
+		private brushCtx: CanvasRenderingContext2D,
 		private _size: number,
 		private _thickness: number = 1,
 	) {}
 
 	public drawDot(point: Vec2D) {
-		this.burshCtx.save();
-		this.burshCtx.globalCompositeOperation = "destination-out";
-		this.burshCtx.globalAlpha = this._thickness;
-		this.burshCtx.beginPath();
-		this.burshCtx.arc(point.x, point.y, this._size, 0, Math.PI * 2);
-		this.burshCtx.fill();
+		this.brushCtx.save();
+		this.brushCtx.globalCompositeOperation = "destination-out";
+		this.brushCtx.globalAlpha = this._thickness;
+		this.brushCtx.beginPath();
+		this.brushCtx.arc(point.x, point.y, this._size, 0, Math.PI * 2);
+		this.brushCtx.fill();
 
-		this.burshCtx.restore();
+		this.brushCtx.restore();
 	}
 }
