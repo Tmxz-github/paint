@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { Paint } from "./Paint";
-import { Eraser } from "./Paint/DefaultPlugins/Eraser";
-import { Lasso } from "./Paint/DefaultPlugins/Lasso";
+import { Paint, Eraser, Lasso } from ".";
 
 const canvas = ref<HTMLDivElement>();
 const paint = ref<Paint>();
@@ -15,12 +13,12 @@ onMounted(() => {
 	paint.value = new Paint({
 		containerEl: canvas.value,
 		width: 1024,
-		use: [new Eraser, new Lasso]
+		use: [new Eraser(), new Lasso()],
 	});
 	paint.value.pointerListener.on("MOVE", () => {
 		const div = document.querySelector("#pos")!;
 		div.innerHTML = `${paint.value?.cursor.curPos.x}:::${paint.value?.cursor.curPos.y}`;
-	})
+	});
 });
 
 const setLayer = (i: number) => {
@@ -80,20 +78,8 @@ const setLayerVisible = (v: boolean, i: number) => {
 			>
 				变浅
 			</button>
-			<button
-				@click="
-					paint?.rotateTo(paint.rotateDegree - 5)
-				"
-			>
-				左转
-			</button>
-			<button
-				@click="
-					paint?.rotateTo(paint.rotateDegree + 5)
-				"
-			>
-				右转
-			</button>
+			<button @click="paint?.rotateTo(paint.rotateDegree - 5)">左转</button>
+			<button @click="paint?.rotateTo(paint.rotateDegree + 5)">右转</button>
 		</div>
 		<div
 			id="canvas"
