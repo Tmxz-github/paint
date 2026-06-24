@@ -1,10 +1,10 @@
-import type { Brush } from "../Brushes";
 import { Pen } from "../Brushes/Pen";
 import type { DirPoint } from "../../Types";
 import { Vec2D } from "../../Types/vec2d";
 import { Clamp, deepClone, easeOutDecay, Mix } from "../Utils";
 import { genBezierPoints } from "../Utils/line";
 import { PointsLine } from "./PointsLine";
+import type { BaseBrush } from "../Brushes";
 
 export class Line {
 	private lastDot: number = 0;
@@ -16,7 +16,7 @@ export class Line {
 
 	constructor(
 		private pathCtx: CanvasRenderingContext2D,
-		private brush: Brush,
+		private brush: BaseBrush,
 	) {
 		if (!brush) {
 			this.brush = new Pen(this.pathCtx, 2, 2, "black");

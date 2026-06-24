@@ -14,7 +14,7 @@ import { KeyListener } from "./Input/key-listener";
 import { Line } from "./Line";
 import { Pen } from "./Brushes";
 import { PointerListener } from "./Input/pointer-listener";
-import type { Brush, BrushStyle, BrushTypes } from "./Brushes";
+import type { BaseBrush, BrushStyle, BrushTypes } from "./Brushes";
 import { CircleClamp, Clamp, createMirror } from "./Utils";
 import { CanvasHistory } from "./CanvasHistory";
 import { createCanvasContext } from "./Utils/canvas";
@@ -132,13 +132,13 @@ export class Paint {
 	/** 剪切内容拖动开始坐标，每次拖动时都会变化 */
 	public clipGrabStartPos: Vec2D = { x: 0, y: 0 };
 	/** 笔刷，类似套索等工具也是笔刷 */
-	public brush: Brush;
+	public brush: BaseBrush;
 	/** 同步笔刷 */
-	public mirrorBrush: Brush;
+	public mirrorBrush: BaseBrush;
 	/** 鼠标移动时划过的线，本质是点集合 */
 	public readonly line: Line;
 	/** 笔刷表 */
-	public readonly brushes: Map<BrushTypes, Brush> = new Map();
+	public readonly brushes: Map<BrushTypes, BaseBrush> = new Map();
 	public readonly pointerListener: PointerListener;
 	public state: PaintState = "DRAW";
 	/** 开始修改剪切内容 */
@@ -210,7 +210,7 @@ export class Paint {
 		this.initBrushes();
 		this.brush = this.brushes.get("PEN")!;
 
-		this.mirrorBrush = createMirror<typeof this, Brush>(this, ["brush"]);
+		this.mirrorBrush = createMirror<typeof this, BaseBrush>(this, ["brush"]);
 
 		this.line = new Line(this.mirrorCtx, this.mirrorBrush);
 

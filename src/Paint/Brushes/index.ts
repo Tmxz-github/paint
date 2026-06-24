@@ -1,18 +1,11 @@
-import type { Vec2D } from "../../Types";
 import { Pen } from "./Pen";
+import { BaseBrush } from "./BaseBrush";
 export interface BrushStyle {
 	size: number;
 	color: string;
 	thickness: number;
 }
 
-export interface Brush {
-	size: number;
-	color: string;
-	thickness: number;
-	drawDot: (point: Vec2D) => void;
-}
-
 export type BrushTypes = "PEN" | "ERASER" | "LASSO";
 
-export { Pen };
+export { Pen, BaseBrush };

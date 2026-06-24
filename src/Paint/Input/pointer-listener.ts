@@ -1,5 +1,7 @@
 import type { MyPointerEvent, PointerTypes } from "../../Types";
 
+export type { MyPointerEvent };
+
 type EventCallBack = (e: MyPointerEvent) => void;
 
 export class PointerListener {

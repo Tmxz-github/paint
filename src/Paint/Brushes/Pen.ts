@@ -1,37 +1,15 @@
-import type { Brush, BrushStyle } from ".";
+import type { BrushStyle } from ".";
 import type { Vec2D } from "../../Types";
-import { Clamp } from "../Utils";
+import { BaseBrush } from "./BaseBrush";
 
-export class Pen implements Brush {
-	public get thickness(): number {
-		return this._thickness;
+export class Pen extends BaseBrush {
+	constructor(brushCtx: CanvasRenderingContext2D, size: number, thickness: number, color: string) {
+		super(brushCtx, size, thickness, color);
 	}
-	/** 0 - 1 */
-	public set thickness(value: number) {
-		value = Clamp(value, 0.1, 1);
-		this._thickness = value;
-	}
-	public get color(): string {
-		return this._color;
-	}
-	public set color(value: string) {
+
+	protected onColorChange(value: string): void {
 		this.brushCtx.strokeStyle = value;
-		this._color = value;
 	}
-	public get size(): number {
-		return this._size;
-	}
-	public set size(value: number) {
-		value = Clamp(value, 0.1, 128);
-		this.brushCtx.lineWidth = value;
-		this._size = value;
-	}
-	constructor(
-		private brushCtx: CanvasRenderingContext2D,
-		private _size: number,
-		private _thickness: number,
-		private _color: string,
-	) {}
 
 	public drawDot(point: Vec2D, options?: BrushStyle) {
 		this.brushCtx.save();
