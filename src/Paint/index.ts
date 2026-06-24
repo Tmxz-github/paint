@@ -15,13 +15,14 @@ import { Line } from "./Line";
 import { Pen } from "./Brushes";
 import { PointerListener } from "./Input/pointer-listener";
 import type { BaseBrush, BrushStyle, BrushTypes } from "./Brushes";
-import { CircleClamp, Clamp, createMirror } from "./Utils";
+import { Clamp, createMirror } from "./Utils";
 import { CanvasHistory } from "./CanvasHistory";
 import { createCanvasContext } from "./Utils/canvas";
 import { BaseMode, type PaintMode } from "./Mode";
 import { DrawMode } from "./Mode/drawMode";
 import type { PaintPlugin } from "./DefaultPlugins";
 import { LASSO_LAYER_INDEX, LASSO_RECT_INDEX } from "./constants";
+import { TransformManager } from "./Transform";
 
 export interface PaintOption {
 	containerEl: HTMLElement;
@@ -32,11 +33,10 @@ export interface PaintOption {
 
 export class Paint {
 	public get scaleValue(): number {
-		return this._scaleValue;
+		return this.transform.scale;
 	}
 	public set scaleValue(value: number) {
-		value = Clamp(value, this.minScaleValue, this.maxScaleValue);
-		this._scaleValue = value;
+		this.transform.scale = Clamp(value, this.transform.minScale, this.transform.maxScale);
 	}
 
 	public get grabReady(): boolean {
@@ -70,11 +70,7 @@ export class Paint {
 	}
 
 	public get rotateDegree() {
-		return this._rotateDegree;
-	}
-	public set rotateDegree(value) {
-		this._rotateRadian = (value * Math.PI) / 180;
-		this._rotateDegree = value;
+		return this.transform.rotation;
 	}
 	public get canDraw() {
 		return this.canvasReady && this.currentLayer.visible && !this.grabbing;
@@ -94,12 +90,8 @@ export class Paint {
 	public canvasHistory: CanvasHistory;
 	/** 每一笔绘制后的包围盒 */
 	public lineBBox: BoundBox = BoundBox.Empty;
-	/** 缩放比例 */
-	public _scaleValue: number = 1;
-	/** 缩放步进 */
-	public scaleStep: number = 0.2;
-	/** 设置新的缩放比例前，存储的上次缩放比例 */
-	public preScaleValue: number = 1;
+	/** 变换管理器 */
+	public transform: TransformManager;
 	/** 光标 */
 	public cursor: Cursor;
 	/** 画布已经点击 */
@@ -108,14 +100,6 @@ export class Paint {
 	public backgroundColor: string = "#f0f0f0";
 	/** 画布背景色 */
 	public canvacBackgroundColor: string = "#ffffff";
-	/** 光标在 viewCtx 对应 canvas 上的坐标 */
-	public cursorOffset: Vec2D = { x: 0, y: 0 };
-	/** viewCtx 对应 canvas 偏移量 */
-	public canvasOffset: Vec2D = { x: 0, y: 0 };
-	public minScaleValue: number = 0.1;
-	public maxScaleValue: number = 64;
-	public _rotateDegree = 0;
-	public _rotateRadian = 0;
 	/**
 	 * todo
 	 * 页面加载时如果光标在元素内则需要动一下 cursor 才能渲染
@@ -185,6 +169,8 @@ export class Paint {
 		this.canvasElement.width = this.width;
 		this.canvasElement.height = this.height;
 
+		this.transform = new TransformManager(this.canvasElement.width, this.canvasElement.height);
+
 		this.pointerListener = new PointerListener(this.containerEl);
 		this.keyListener = new KeyListener(this.containerEl);
 
@@ -218,7 +204,7 @@ export class Paint {
 
 		this.eventBind();
 
-		this.applyTransform(this._rotateDegree, this._scaleValue, this.canvasOffset);
+		this.transform.applyTo(this.viewCtx);
 
 		for (const plugin of this.plugins) {
 			plugin.apply(this);
@@ -278,15 +264,13 @@ export class Paint {
 		this.keyListener.control().on("z:up", () => {
 			this.canvasHistory.undo();
 			this.renderLayers();
-			this.currentLayer.preCtx.putImageData(this.getImageData(), 0, 0);
 		});
 		this.keyListener.control().on("r:up", () => {
 			this.canvasHistory.redo();
 			this.renderLayers();
-			this.currentLayer.preCtx.putImageData(this.getImageData(), 0, 0);
 		});
-		this.keyListener.on("w:down", this.zoomIn);
-		this.keyListener.on("s:down", this.zoomOut);
+		this.keyListener.on("w:down", () => this.zoomIn());
+		this.keyListener.on("s:down", () => this.zoomOut());
 	}
 
 	/** 渲染放置画布的画板 */
@@ -449,27 +433,16 @@ export class Paint {
 	 * @param pos 光标在 canvas 元素上的坐标
 	 */
 	public grabTo(pos: Vec2D) {
-		const offsetX = pos.x - this.grabStartPos.x;
-		const offsetY = pos.y - this.grabStartPos.y;
-
-		const cos = Math.cos(this._rotateRadian);
-		const sin = Math.sin(this._rotateRadian);
-
-		const rotatedOffsetX = offsetX * cos - offsetY * sin;
-		const rotatedOffsetY = offsetX * sin + offsetY * cos;
-
-		this.canvasOffset.x += rotatedOffsetX;
-		this.canvasOffset.y += rotatedOffsetY;
-
-		this.applyTransform(this._rotateDegree, this._scaleValue, this.canvasOffset);
 		this.renderLayers();
+		this.transform.pan(pos, this.grabStartPos);
 		this.grabStartPos = pos;
+		this.transform.applyTo(this.viewCtx);
+		this.renderLayers();
 	}
 
 	public rotateTo(degree: number) {
-		degree = CircleClamp(degree, -360, 360);
-		this._rotateDegree = degree;
-		this.applyTransform(this._rotateDegree, this._scaleValue, this.canvasOffset);
+		this.transform.rotateTo(degree);
+		this.transform.applyTo(this.viewCtx);
 		this.renderLayers();
 	}
 
@@ -481,126 +454,20 @@ export class Paint {
 	}
 
 	public zoomIn(options: ZoomOptions = {}) {
-		let { center, scaleStep, smooth } = options;
-		if (!center) {
-			center = {
-				x: this.canvasElement.width / 2,
-				y: this.canvasElement.height / 2,
-			};
-		}
-		if (!scaleStep) {
-			// === 0
-			scaleStep = 0.1;
-		}
-		if (!smooth) {
-			this._scaleValue += scaleStep;
-			if (this._scaleValue === this.preScaleValue) {
-				return;
-			}
-
-			this.zoom(this._scaleValue, Math.abs(this._scaleValue - this.preScaleValue), center);
-			return;
-		}
-		let i = 0;
-		const frame = () => {
-			if (i >= 10) return;
-			this._scaleValue += scaleStep! / 5;
-			if (this._scaleValue === this.preScaleValue) {
-				return;
-			}
-
-			this.zoom(this._scaleValue, Math.abs(this._scaleValue - this.preScaleValue), center);
-			i += 1;
-			requestAnimationFrame(frame);
-		};
-		requestAnimationFrame(frame);
+		this.transform.zoomIn(options, () => {
+			this.transform.applyTo(this.viewCtx);
+			this.renderLayers();
+			if (!this.cursorIn) return;
+			this.cursorRender(this.pointerPos);
+		});
 	}
 
 	public zoomOut(options: ZoomOptions = {}) {
-		let { center, scaleStep, smooth } = options;
-		if (!center) {
-			center = {
-				x: this.canvasElement.width / 2,
-				y: this.canvasElement.height / 2,
-			};
-		}
-		if (!scaleStep) {
-			// === 0
-			scaleStep = 0.1;
-		}
-		if (!smooth) {
-			this._scaleValue -= scaleStep;
-			if (this._scaleValue === this.preScaleValue) {
-				return;
-			}
-
-			this.zoom(this._scaleValue, Math.abs(this._scaleValue - this.preScaleValue), center);
-			return;
-		}
-		let i = 0;
-		const frame = () => {
-			if (i >= 6) return;
-			this._scaleValue -= scaleStep! / 10;
-			if (this._scaleValue === this.preScaleValue) {
-				return;
-			}
-
-			this.zoom(this._scaleValue, Math.abs(this._scaleValue - this.preScaleValue), center);
-			i += 1;
-			requestAnimationFrame(frame);
-		};
-		requestAnimationFrame(frame);
-	}
-
-	public zoom(scale: number, scaleStep: number = 0.1, center?: Vec2D) {
-		if (!center) {
-			center = {
-				x: this.canvasElement.width / 2,
-				y: this.canvasElement.height / 2,
-			};
-		}
-		this.cursorOffset = {
-			x: center.x - this.canvasOffset.x,
-			y: center.y - this.canvasOffset.y,
-		};
-
-		const deltaX = (this.cursorOffset.x / this.preScaleValue) * scaleStep;
-		const deltaY = (this.cursorOffset.y / this.preScaleValue) * scaleStep;
-
-		this.canvasOffset.x += scale > this.preScaleValue ? -deltaX : deltaX;
-		this.canvasOffset.y += scale > this.preScaleValue ? -deltaY : deltaY;
-
-		this.applyTransform(this._rotateDegree, scale, this.canvasOffset);
-		this.preScaleValue = scale;
-		this.renderLayers();
-		if (!this.cursorIn) return;
-		this.cursorRender(this.pointerPos);
-	}
-
-	/**
-	 *
-	 * @param rotate 角度
-	 * @param scale 放缩倍率
-	 * @param offset 偏移量
-	 */
-	applyTransform(rotate: number, scale: number, offset: Vec2D) {
-		const center = {
-			x: this.canvasElement.width / 2,
-			y: this.canvasElement.height / 2,
-		};
-		const rad = (rotate * Math.PI) / 180;
-		const cos = Math.cos(rad);
-		const sin = Math.sin(rad);
-
-		const a = scale * cos;
-		const b = scale * sin;
-		const c = -scale * sin;
-		const d = scale * cos;
-		const dx = (offset.x - center.x) / scale;
-		const dy = (offset.y - center.y) / scale;
-		const e = center.x + dx * a + dy * c;
-		const f = center.y + dx * b + dy * d;
-
-		this.viewCtx.setTransform(a, b, c, d, e, f);
+		this.transform.zoomOut(options, () => {
+			this.transform.applyTo(this.viewCtx);
+			this.renderLayers();
+			if (!this.cursorIn) return;
+			this.cursorRender(this.pointerPos);
+		});
 	}
 }

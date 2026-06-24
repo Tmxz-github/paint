@@ -58,6 +58,9 @@ export class CanvasHistory {
 				undo,
 			);
 		}
+
+		// 同步 preCtx，确保下次 diff 计算正确
+		data.layer.snapshot();
 	}
 
 	private findPixelDiff(lineBBox: BoundBox, currentLayer: Layer) {
