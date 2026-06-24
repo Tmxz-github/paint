@@ -1,17 +1,21 @@
 import { PaintPlugin } from "..";
 import type { Paint } from "../..";
-import { LASSO_LAYER_INDEX, LASSO_RECT_INDEX } from "../../constants";
+import { Layer } from "../../Layer";
 import type { AnyObject } from "../../../Types";
 import { ClipMode } from "./ClipMode";
 import { LassoBrush } from "./LassoBrush";
 
 export class Lasso extends PaintPlugin {
+	/** Lasso 内容渲染层 */
+	private _lassoLayer!: Layer;
+	/** Lasso 矩形框渲染层 */
+	private _lassoRectLayer!: Layer;
+
 	constructor() {
 		super();
 		this.name = "lasso";
 	}
 
-	/** 剪切状态 */
 	/** 已经确认修改的剪切内容 */
 	private clipped: boolean = false;
 
@@ -22,13 +26,30 @@ export class Lasso extends PaintPlugin {
 			if (type === "LASSO") {
 				instance.state = "CLIP";
 				this.clipped = false;
-				instance.mode = new ClipMode(instance, this);
+				instance.mode = new ClipMode(instance, this, this._lassoLayer, this._lassoRectLayer);
 			} else {
 				this.offClip(instance);
 			}
 		});
 
-		const lasso = new LassoBrush(instance.backLayers[LASSO_RECT_INDEX].vCtx as CanvasRenderingContext2D);
+		// 创建渲染层并注册到 Paint
+		this._lassoLayer = new Layer({ width: instance.width, height: instance.height });
+		this._lassoRectLayer = new Layer({ width: instance.width, height: instance.height });
+
+		instance.registerRenderLayer({
+			id: "lasso-content",
+			zIndex: 100,
+			layer: this._lassoLayer,
+			pluginId: this.name,
+		});
+		instance.registerRenderLayer({
+			id: "lasso-rect",
+			zIndex: 200,
+			layer: this._lassoRectLayer,
+			pluginId: this.name,
+		});
+
+		const lasso = new LassoBrush(this._lassoRectLayer.vCtx as CanvasRenderingContext2D);
 		instance.brushes.set("LASSO", lasso);
 
 		instance.keyListener.on("Enter:up", this.handlerEnterDown, [instance], this);
@@ -61,7 +82,7 @@ export class Lasso extends PaintPlugin {
 			);
 		} else if (instance.state === "CLIPPING") {
 			(instance.brush as LassoBrush).drawDot(undefined, false);
-			instance.putContent((instance.brush as LassoBrush).boundBox);
+			instance.putContent((instance.brush as LassoBrush).boundBox, this._lassoLayer.vCtx);
 			instance.canvasHistory.commitChange(
 				instance.clipedArea.boundBox,
 				instance.currentLayer,
@@ -75,10 +96,10 @@ export class Lasso extends PaintPlugin {
 
 	private offClip(instance: Paint) {
 		instance.state = "DRAW";
-		instance.backLayers[LASSO_RECT_INDEX].vCtx.clearRect(0, 0, instance.width, instance.height);
-		instance.backLayers[LASSO_LAYER_INDEX].vCtx.clearRect(0, 0, instance.width, instance.height);
+		this._lassoRectLayer.vCtx.clearRect(0, 0, instance.width, instance.height);
+		this._lassoLayer.vCtx.clearRect(0, 0, instance.width, instance.height);
 		if (!this.clipped) {
-			instance.putContent(instance.clipedArea.boundBox);
+			instance.putContent(instance.clipedArea.boundBox, this._lassoLayer.vCtx);
 		}
 		instance.keyListener.off("Enter:up", this.handlerEnterDown);
 		instance.mode = instance.drawMode;

@@ -5,11 +5,14 @@ import type { MyPointerEvent } from "../../Input/pointer-listener";
 import { Vec2D } from "../../../Types/vec2d";
 import { deepClone } from "../../Utils";
 import type { Lasso } from ".";
+import type { Layer } from "../../Layer";
 
 export class ClipMode implements PaintMode {
 	constructor(
 		private ctx: Paint,
 		_env: Lasso,
+		private lassoLayer: Layer,
+		private lassoRectLayer: Layer,
 	) {}
 
 	onPointerMove({ pos }: MyPointerEvent) {
@@ -42,10 +45,10 @@ export class ClipMode implements PaintMode {
 				};
 				(this.ctx.brush as LassoBrush).startPoint = Vec2D.Add((this.ctx.brush as LassoBrush).startPoint, offset);
 
-				const lassoCtx = this.ctx.backLayers[0].vCtx;
+				const lassoCtx = this.lassoLayer.vCtx;
 				lassoCtx.clearRect(boundBox.left, boundBox.top, boundBox.right - boundBox.left, boundBox.bottom - boundBox.top);
 				this.ctx.brush.drawDot(Vec2D.Add((this.ctx.brush as LassoBrush).preEndpoint, offset));
-				this.ctx.grabContent((this.ctx.brush as LassoBrush).boundBox);
+				this.ctx.grabContent((this.ctx.brush as LassoBrush).boundBox, lassoCtx);
 
 				this.ctx.clipGrabStartPos = pos;
 

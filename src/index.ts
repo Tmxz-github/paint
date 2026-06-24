@@ -21,7 +21,10 @@ export {
 } from "./Types";
 
 // --- 常量 ---
-export { TRANSPARENT, LASSO_LAYER_INDEX, LASSO_RECT_INDEX } from "./Paint/constants";
+export { TRANSPARENT } from "./Paint/constants";
+
+// --- 渲染层 ---
+export type { RenderLayerEntry } from "./Paint/RenderLayer";
 
 // --- 变换管理 ---
 export { TransformManager } from "./Paint/Transform";

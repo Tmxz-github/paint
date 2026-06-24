@@ -21,8 +21,8 @@ import { createCanvasContext } from "./Utils/canvas";
 import { BaseMode, type PaintMode } from "./Mode";
 import { DrawMode } from "./Mode/drawMode";
 import type { PaintPlugin } from "./DefaultPlugins";
-import { LASSO_LAYER_INDEX, LASSO_RECT_INDEX } from "./constants";
 import { TransformManager } from "./Transform";
+import type { RenderLayerEntry } from "./RenderLayer";
 
 export interface PaintOption {
 	containerEl: HTMLElement;
@@ -129,12 +129,11 @@ export class Paint {
 	public clipStarted: boolean = false;
 	/** 确认修改的剪切内容 */
 	public clipped: boolean = false;
-	/** 一些绘制内容不同的图层，例如剪切框、剪切框内容 */
-	public backLayers: Layer[] = [];
 	/** 画板是否处于光标按下状态 && 当前图层是否可见 && 非拖拽模式 */
 	public _canDraw: boolean = true;
 	/** 剪切框内容以及范围 */
 	public readonly clipedArea: ClipedArea = ClipedArea.Empty;
+	public renderLayersRegistry: RenderLayerEntry[] = [];
 	public drawMode: DrawMode = new DrawMode(this);
 	public mode: PaintMode = this.drawMode;
 	public baseMode: BaseMode = new BaseMode(this);
@@ -180,8 +179,6 @@ export class Paint {
 		}
 		this.viewCtx.imageSmoothingEnabled = false;
 
-		this.initBackLayers();
-
 		const initLayer = new Layer({
 			width: this.canvasElement.width,
 			height: this.canvasElement.height,
@@ -216,15 +213,21 @@ export class Paint {
 		this.brushes.set("PEN", pen);
 	}
 
-	public initBackLayers() {
-		const lassoLayer = new Layer({ width: this.width, height: this.height });
-		const lassoRectLayer = new Layer({
-			width: this.width,
-			height: this.height,
-		});
+	/** 注册渲染层 */
+	public registerRenderLayer(entry: RenderLayerEntry): void {
+		this.unregisterRenderLayer(entry.id);
+		this.renderLayersRegistry.push(entry);
+		this.renderLayersRegistry.sort((a, b) => a.zIndex - b.zIndex);
+	}
 
-		this.backLayers[LASSO_LAYER_INDEX] = lassoLayer;
-		this.backLayers[LASSO_RECT_INDEX] = lassoRectLayer;
+	/** 按 id 注销渲染层 */
+	public unregisterRenderLayer(id: string): void {
+		this.renderLayersRegistry = this.renderLayersRegistry.filter((e) => e.id !== id);
+	}
+
+	/** 按插件 ID 清理所有渲染层 */
+	public unregisterPluginRenderLayers(pluginId: string): void {
+		this.renderLayersRegistry = this.renderLayersRegistry.filter((e) => e.pluginId !== pluginId);
 	}
 
 	public eventBind() {
@@ -294,20 +297,18 @@ export class Paint {
 		}
 	}
 
-	/** 拖动剪切区域 */
-	public grabContent(boundBox: BoundBox) {
-		const lassoCtx = this.backLayers[LASSO_LAYER_INDEX].vCtx;
+	/** 拖动剪切区域（渲染到指定的 lassoCtx） */
+	public grabContent(boundBox: BoundBox, lassoCtx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D) {
 		const targetPos = { x: boundBox.left, y: boundBox.top };
 		lassoCtx.putImageData(this.clipedArea.imageData, targetPos.x, targetPos.y);
 	}
 
 	/**
-	 * 将剪切内容放置
+	 * 将剪切内容放置（清除指定的 lassoCtx）
 	 */
-	public putContent(boundBox: BoundBox) {
+	public putContent(boundBox: BoundBox, lassoCtx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D) {
 		const targetPos = { x: boundBox.left, y: boundBox.top };
 		const tmpContext = createCanvasContext(this.clipedArea.imageData);
-		const lassoCtx = this.backLayers[LASSO_LAYER_INDEX].vCtx;
 		lassoCtx.clearRect(boundBox.left, boundBox.top, boundBox.right - boundBox.left, boundBox.bottom - boundBox.top);
 		this.currentLayer.vCtx.drawImage(tmpContext.canvas, targetPos.x - 0.5, targetPos.y - 0.5);
 	}
@@ -417,8 +418,10 @@ export class Paint {
 				this.viewCtx.drawImage(layer.vCtx.canvas, 0, 0);
 			}
 		}
-		this.viewCtx.drawImage(this.backLayers[LASSO_LAYER_INDEX].vCtx.canvas, 0, 0);
-		this.viewCtx.drawImage(this.backLayers[LASSO_RECT_INDEX].vCtx.canvas, 0, 0);
+		// 渲染所有已注册的插件渲染层（按 zIndex 排序）
+		for (const entry of this.renderLayersRegistry) {
+			this.viewCtx.drawImage(entry.layer.vCtx.canvas, 0, 0);
+		}
 	}
 
 	/** 设置图层信息，目前只设置是否可见 */
