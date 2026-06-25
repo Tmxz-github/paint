@@ -1,6 +1,7 @@
 import type { PaintMode } from ".";
 import type { Paint } from "..";
 import type { MyPointerEvent } from "../Input/pointer-listener";
+import type { BrushCommitData } from "../DefaultPlugins";
 
 export class DrawMode implements PaintMode {
 	/** 画布开始绘制 */
@@ -31,6 +32,14 @@ export class DrawMode implements PaintMode {
 			this.ctx.line.endLine();
 
 			this.ctx.canvasHistory.commitChange(this.ctx.lineBBox, this.ctx.currentLayer);
+
+			// 笔刷提交钩子
+			const commitData: BrushCommitData = {
+				brush: this.ctx.brush,
+				boundBox: this.ctx.lineBBox,
+				layer: this.ctx.currentLayer,
+			};
+			this.ctx.plugins.forEach((p) => p.onBrushCommit?.(commitData));
 
 			this.ctx.currentLayer.preCtx.putImageData(this.ctx.getImageData(), 0, 0);
 			/** 每一笔绘制完后重制包围盒 */

@@ -53,7 +53,7 @@ export { KeyListener } from "./Paint/Input/key-listener";
 export { PointerListener } from "./Paint/Input/pointer-listener";
 
 // --- 插件基类与内置插件 ---
-export { PaintPlugin } from "./Paint/DefaultPlugins";
+export { PaintPlugin, type BrushCommitData, type RenderContext } from "./Paint/DefaultPlugins";
 export { Eraser } from "./Paint/DefaultPlugins/Eraser";
 export { Lasso } from "./Paint/DefaultPlugins/Lasso";
 

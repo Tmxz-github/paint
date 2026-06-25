@@ -20,7 +20,7 @@ import { CanvasHistory } from "./CanvasHistory";
 import { createCanvasContext } from "./Utils/canvas";
 import { BaseMode, type PaintMode } from "./Mode";
 import { DrawMode } from "./Mode/drawMode";
-import type { PaintPlugin } from "./DefaultPlugins";
+import type { PaintPlugin, RenderContext } from "./DefaultPlugins";
 import { TransformManager } from "./Transform";
 import type { RenderLayerEntry } from "./RenderLayer";
 
@@ -202,9 +202,9 @@ export class Paint {
 		this.eventBind();
 
 		this.transform.applyTo(this.viewCtx);
-
 		for (const plugin of this.plugins) {
 			plugin.apply(this);
+			plugin.onInstalled?.();
 		}
 	}
 
@@ -406,10 +406,22 @@ export class Paint {
 		this.layers.push(newLayer);
 
 		this.currentLayer = newLayer;
+		// 图层变更钩子
+		for (const plugin of this.plugins) {
+			plugin.onLayerChange?.(newLayer);
+		}
 		this.renderLayers();
 	}
 
 	public renderLayers() {
+		const renderCtx: RenderContext = {
+			viewCtx: this.viewCtx,
+			timestamp: Date.now(),
+		};
+		// 渲染前钩子
+		for (const plugin of this.plugins) {
+			plugin.onRenderBefore?.(renderCtx);
+		}
 		// todo 局部刷新
 		this.renderBackground();
 		this.clearView();
@@ -421,6 +433,10 @@ export class Paint {
 		// 渲染所有已注册的插件渲染层（按 zIndex 排序）
 		for (const entry of this.renderLayersRegistry) {
 			this.viewCtx.drawImage(entry.layer.vCtx.canvas, 0, 0);
+		}
+		// 渲染后钩子
+		for (const plugin of this.plugins) {
+			plugin.onRenderAfter?.(renderCtx);
 		}
 	}
 
