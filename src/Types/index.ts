@@ -31,12 +31,3 @@ export interface MyPointerEvent {
 	pos: Vec2D;
 	e: PointerEvent | WheelEvent | MouseEvent;
 }
-
-export interface PaintPointerEvent {
-	onPointerMove: (e: MyPointerEvent) => void;
-	onPointerDown: (e: MyPointerEvent) => void;
-	onPointerUp: (e: MyPointerEvent) => void;
-	onPointerLeave: (e: MyPointerEvent) => void;
-	onPointerEnter: (e: MyPointerEvent) => void;
-	onWheel: (e: MyPointerEvent) => void;
-}

@@ -17,7 +17,6 @@ export {
 	type PaintEvents,
 	type PointerTypes,
 	type MyPointerEvent,
-	type PaintPointerEvent,
 } from "./Types";
 
 // --- 常量 ---

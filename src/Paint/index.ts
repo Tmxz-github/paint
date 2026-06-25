@@ -5,7 +5,6 @@ import {
 	type PaintState,
 	type PaintEvents,
 	type AnyObject,
-	type PaintPointerEvent,
 } from "../Types";
 import { Vec2D } from "../Types/vec2d";
 import { KeyListener } from "./Input/key-listener";
@@ -22,7 +21,6 @@ import { BaseMode, type PaintMode } from "./Mode";
 import { DrawMode } from "./Mode/drawMode";
 import type { PaintPlugin } from "./DefaultPlugins";
 import { TransformManager } from "./Transform";
-import type { RenderLayerEntry } from "./RenderLayer";
 import { LayerManager } from "./LayerManager";
 import { RenderPipeline } from "./RenderPipeline";
 
@@ -38,55 +36,55 @@ export class Paint {
 	public readonly cursorRenderer: CursorRenderer;
 	/** 输入管理器 */
 	public readonly inputManager: InputManager;
+	/** 变换管理器 */
+	public readonly transform: TransformManager;
+	/** 绘制历史，只记录笔的绘制 */
+	public readonly canvasHistory: CanvasHistory;
+	/** 笔刷管理器 */
+	public readonly brushManager: BrushManager;
+	/** 鼠标移动时划过的线，本质是点集合 */
+	public readonly line: Line;
+	/** 鼠标事件监听 */
+	public readonly pointerListener: PointerListener;
+	/** 处理键盘绑定 */
+	public readonly keyListener: KeyListener;
+	/** 剪切框内容以及范围 */
+	public readonly clipedArea: ClipedArea;
+	/** 图层管理器 */
+	public readonly layerManager!: LayerManager;
+	/** 渲染管线 */
+	public readonly renderPipeline: RenderPipeline;
+	/** 同步笔刷 */
+	public readonly mirrorBrush: BaseBrush;
+	/** 同步 currentLayer */
+	public readonly mirrorCtx: CanvasRenderingContext2D;
+
+	public readonly width: number = 512;
+	public readonly height: number = 512;
+
 	public get canDraw() {
 		return this.canvasReady && this.layerManager.currentLayer.visible && !this.cursorRenderer.grabbing;
 	}
 	public plugins: PaintPlugin[] = [];
-	public paintPointerEvents!: [Partial<PaintPointerEvent>, Partial<PaintPointerEvent>];
 	public containerEl: HTMLElement;
 	/** canvas html 元素 */
 	public canvasElement: HTMLCanvasElement;
 	/** 视窗绘制上下文，只负责最终渲染，所有绘制应先在其余离线 canvas 上绘制后再合并绘制到 viewCtx 中 */
 	public viewCtx: CanvasRenderingContext2D;
-	/** 同步 currentLayer */
-	public mirrorCtx: CanvasRenderingContext2D;
-	/** 绘制历史，只记录笔的绘制 */
-	public canvasHistory: CanvasHistory;
 	/** 每一笔绘制后的包围盒 */
 	public lineBBox: BoundBox = BoundBox.Empty;
-	/** 变换管理器 */
-	public transform: TransformManager;
 	/** 画布已经点击 */
 	public canvasReady: boolean = false;
 	/** 放置画布的画板背景色 */
 	public backgroundColor: string = "#f0f0f0";
 	/** 画布背景色 */
 	public canvasBackgroundColor: string = "#ffffff";
-	/** 笔刷管理器 */
-	public readonly brushManager: BrushManager;
-	/** 同步笔刷 */
-	public mirrorBrush: BaseBrush;
-	/** 鼠标移动时划过的线，本质是点集合 */
-	public readonly line: Line;
-	public readonly pointerListener: PointerListener;
 	public state: PaintState = "DRAW";
 	/** 开始修改剪切内容 */
 	public clipStarted: boolean = false;
-	/** 确认修改的剪切内容 */
-	public clipped: boolean = false;
-	/** 剪切框内容以及范围 */
-	public readonly clipedArea: ClipedArea = ClipedArea.Empty;
 	public drawMode: DrawMode = new DrawMode(this);
 	public mode: PaintMode = this.drawMode;
 	public baseMode: BaseMode = new BaseMode(this);
-	/** 处理键盘绑定 */
-	public readonly keyListener: KeyListener;
-	public readonly width: number = 512;
-	public readonly height: number = 512;
-	/** 图层管理器 */
-	public layerManager!: LayerManager;
-	/** 渲染管线 */
-	public renderPipeline: RenderPipeline;
 
 	constructor(option: PaintOption) {
 		let { containerEl, width, height } = option;
@@ -115,6 +113,8 @@ export class Paint {
 			throw new Error("bad");
 		}
 		this.viewCtx.imageSmoothingEnabled = false;
+
+		this.clipedArea = ClipedArea.Empty;
 
 		this.transform = new TransformManager(this.canvasElement.width, this.canvasElement.height);
 		this.pointerListener = new PointerListener(this.containerEl);
