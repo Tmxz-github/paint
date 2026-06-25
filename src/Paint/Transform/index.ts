@@ -7,6 +7,9 @@ import type { ZoomOptions } from "../../Types";
  *
  * 纯数据+计算类，不依赖 Paint 或 CanvasRenderingContext2D 引用。
  * 负责缩放、旋转、平移的状态管理和矩阵计算。
+ *
+ * 缩放采用步数驱动：预计算两个等比数列（wheel 小步进 / keyboard 大步进），
+ * 每次缩放按 delta 步进到数列中固定的缩放比例，确保可逆性和一致性。
  */
 export class TransformManager {
 	/** 缩放比例 */
@@ -19,9 +22,12 @@ export class TransformManager {
 	/** 最小缩放 */
 	minScale: number = 0.1;
 	/** 最大缩放 */
-	maxScale: number = 64;
-	/** 缩放步进 */
-	scaleStep: number = 0.2;
+	maxScale: number = 20;
+
+	/** 键盘缩放等级（大步进 ×1.5） */
+	readonly keyboardZoomLevels: number[];
+	/** 滚轮缩放等级（小步进 ×1.1） */
+	readonly wheelZoomLevels: number[];
 
 	/** 上一帧的缩放值（用于 offset 补偿计算） */
 	private preScale: number = 1;
@@ -31,6 +37,46 @@ export class TransformManager {
 	constructor(canvasWidth: number, canvasHeight: number) {
 		this.canvasWidth = canvasWidth;
 		this.canvasHeight = canvasHeight;
+		this.keyboardZoomLevels = this.buildZoomLevels(1.5);
+		this.wheelZoomLevels = this.buildZoomLevels(1.1);
+	}
+
+	/**
+	 * 生成等比缩放数列 [minScale ... 1 ... maxScale]
+	 * @param multiplier 相邻等级间的倍数（>1）
+	 */
+	private buildZoomLevels(multiplier: number): number[] {
+		const steps: number[] = [this.minScale];
+		const startN = Math.ceil(Math.log(this.minScale) / Math.log(multiplier));
+		const endN = Math.floor(Math.log(this.maxScale) / Math.log(multiplier));
+
+		for (let n = startN; n <= endN; n++) {
+			const v = Math.pow(multiplier, n);
+			// 四舍五入到 6 位小数消除浮点噪声
+			const rounded = Math.round(v * 1e6) / 1e6;
+			if (rounded >= this.minScale && rounded <= this.maxScale) {
+				steps.push(rounded);
+			}
+		}
+		steps.push(this.maxScale);
+		return steps;
+	}
+
+	/**
+	 * 在有序数列中二分查找最接近 target 的索引
+	 */
+	private findClosestIndex(levels: number[], target: number): number {
+		let lo = 0;
+		let hi = levels.length - 1;
+		while (lo < hi) {
+			const mid = (lo + hi) >> 1;
+			if (levels[mid] < target) lo = mid + 1;
+			else hi = mid;
+		}
+		// lo 是第一个 >= target 的元素
+		if (lo === 0) return 0;
+		if (lo >= levels.length) return levels.length - 1;
+		return target - levels[lo - 1] < levels[lo] - target ? lo - 1 : lo;
 	}
 
 	/**
@@ -58,12 +104,18 @@ export class TransformManager {
 	}
 
 	/**
-	 * 以指定点为中心缩放（仅更新状态，不涉及渲染）
-	 * @param scale 目标缩放值
-	 * @param scaleStep 缩放步进（用于 offset 补偿计算）
+	 * 以指定点为中心缩放到指定值（仅更新状态，不涉及渲染）
+	 * @param scale 目标缩放值（会被 clamp 到 [minScale, maxScale]）
 	 * @param center 缩放中心点（屏幕坐标）
+	 * @returns 返回 true 表示成功缩放，false 表示已在边界无法继续
 	 */
-	zoom(scale: number, scaleStep: number = 0.1, center?: Vec2D): void {
+	zoom(scale: number, center?: Vec2D): boolean {
+		const oldScale = this.scale;
+		this.scale = Clamp(scale, this.minScale, this.maxScale);
+		if (this.scale === oldScale) return false;
+
+		const actualStep = Math.abs(this.scale - oldScale);
+
 		if (!center) {
 			center = {
 				x: this.canvasWidth / 2,
@@ -76,14 +128,14 @@ export class TransformManager {
 			y: center.y - this.offset.y,
 		};
 
-		const deltaX = (cursorOffset.x / this.preScale) * scaleStep;
-		const deltaY = (cursorOffset.y / this.preScale) * scaleStep;
+		const deltaX = (cursorOffset.x / this.preScale) * actualStep;
+		const deltaY = (cursorOffset.y / this.preScale) * actualStep;
 
-		this.offset.x += scale > this.preScale ? -deltaX : deltaX;
-		this.offset.y += scale > this.preScale ? -deltaY : deltaY;
+		this.offset.x += this.scale > oldScale ? -deltaX : deltaX;
+		this.offset.y += this.scale > oldScale ? -deltaY : deltaY;
 
-		this.scale = scale;
-		this.preScale = scale;
+		this.preScale = this.scale;
+		return true;
 	}
 
 	/**
@@ -91,20 +143,25 @@ export class TransformManager {
 	 * @param delta 方向 (+1 放大, -1 缩小)
 	 * @param options 缩放选项
 	 * @param onUpdate 每帧更新后的回调（用于 applyTo + 渲染）
+	 *
+	 * 在预计算的缩放等级数列中按 delta 步进，确保放大再缩小能精确回到初始值。
 	 */
 	stepScale(delta: number, options: ZoomOptions = {}, onUpdate?: () => void): void {
+		if (this.scale === this.minScale && delta < 0) return;
+		if (this.scale === this.maxScale && delta > 0) return;
 		const center = options.center ?? {
 			x: this.canvasWidth / 2,
 			y: this.canvasHeight / 2,
 		};
-		const stepSize = options.scaleStep ?? 0.1;
 		const smooth = options.smooth ?? false;
+		const levels = options.zoomMode === "keyboard" ? this.keyboardZoomLevels : this.wheelZoomLevels;
 
-		const targetScale = Clamp(this.scale + delta * stepSize, this.minScale, this.maxScale);
-		if (targetScale === this.preScale) return;
+		const currentIndex = this.findClosestIndex(levels, this.scale);
+		const newIndex = Clamp(currentIndex + delta, 0, levels.length - 1);
+		const targetScale = levels[newIndex];
 
 		if (!smooth) {
-			this.zoom(targetScale, Math.abs(targetScale - this.preScale), center);
+			this.zoom(targetScale, center);
 			onUpdate?.();
 			return;
 		}
@@ -117,7 +174,9 @@ export class TransformManager {
 		const animate = () => {
 			if (frame >= totalFrames) return;
 			const partial = this.scale + step;
-			this.zoom(partial, Math.abs(partial - this.preScale), center);
+			if (!this.zoom(partial, center)) {
+				return;
+			}
 			onUpdate?.();
 			frame += 1;
 			requestAnimationFrame(animate);

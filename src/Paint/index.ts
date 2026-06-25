@@ -294,8 +294,8 @@ export class Paint {
 			this.canvasHistory.redo();
 			this.renderLayers();
 		});
-		this.keyListener.on("w:down", () => this.zoomIn());
-		this.keyListener.on("s:down", () => this.zoomOut());
+		this.keyListener.on("w:down", () => this.zoomIn({ zoomMode: "keyboard" }));
+		this.keyListener.on("s:down", () => this.zoomOut({ zoomMode: "keyboard" }));
 	}
 
 	/** 渲染放置画布的画板 */

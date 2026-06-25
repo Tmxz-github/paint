@@ -51,12 +51,12 @@ export class BaseMode implements PaintMode {
 		this.ctx.pointerPos = pos;
 		(e as WheelEvent).deltaY < 0
 			? this.ctx.zoomIn({
-					scaleStep: this.ctx.transform.scaleStep * this.ctx.scaleValue,
+					zoomMode: "wheel",
 					center: { x: e.offsetX, y: e.offsetY },
 					smooth: true,
 				})
 			: this.ctx.zoomOut({
-					scaleStep: this.ctx.transform.scaleStep * this.ctx.scaleValue,
+					zoomMode: "wheel",
 					center: { x: e.offsetX, y: e.offsetY },
 					smooth: true,
 				});

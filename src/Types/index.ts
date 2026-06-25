@@ -6,8 +6,9 @@ export { Vec2D, BoundBox, ClipedArea };
 
 export interface ZoomOptions {
 	center?: Vec2D;
-	scaleStep?: number;
 	smooth?: boolean;
+	/** 缩放模式：wheel=细致（小步进），keyboard=大致（大步进），默认 wheel */
+	zoomMode?: "wheel" | "keyboard";
 }
 
 export type PaintState = "DRAW" | "DRAWWING" | "GRAB" | "GRABBING" | "CLIP" | "CLIPPING";
