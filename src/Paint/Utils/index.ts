@@ -1,3 +1,5 @@
+import type { BoundBox, Vec2D } from "../../Types";
+
 /** a * (1 - f) + b * f  */
 export const Mix = (a: number, b: number, f: number): number => {
 	return a * (1 - f) + b * f;
@@ -88,4 +90,9 @@ export const deepClone = <T>(obj: T): T => {
 	}
 
 	return cloned;
+};
+
+/** 给定坐标是否在给定包围盒内 */
+export const inBBox = (pos: Vec2D, boundBox: BoundBox): boolean => {
+	return pos.x > boundBox.left && pos.x < boundBox.right && pos.y > boundBox.top && pos.y < boundBox.bottom;
 };

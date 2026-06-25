@@ -1,4 +1,4 @@
-import { PaintPlugin } from "..";
+﻿import { PaintPlugin } from "..";
 import type { Paint } from "../..";
 import { Layer } from "../../Layer";
 import type { AnyObject } from "../../../Types";
@@ -26,23 +26,29 @@ export class Lasso extends PaintPlugin {
 			if (type === "LASSO") {
 				instance.state = "CLIP";
 				this.clipped = false;
-				instance.mode = new ClipMode(instance, this, this._lassoLayer, this._lassoRectLayer);
+				instance.mode = new ClipMode(instance, this, this._lassoLayer);
 			} else {
 				this.offClip(instance);
 			}
 		});
 
 		// 创建渲染层并注册到 Paint
-		this._lassoLayer = new Layer({ width: instance.width, height: instance.height });
-		this._lassoRectLayer = new Layer({ width: instance.width, height: instance.height });
+		this._lassoLayer = new Layer({
+			width: instance.width,
+			height: instance.height,
+		});
+		this._lassoRectLayer = new Layer({
+			width: instance.width,
+			height: instance.height,
+		});
 
-		instance.registerRenderLayer({
+		instance.renderPipeline.registerRenderLayer({
 			id: "lasso-content",
 			zIndex: 100,
 			layer: this._lassoLayer,
 			pluginId: this.name,
 		});
-		instance.registerRenderLayer({
+		instance.renderPipeline.registerRenderLayer({
 			id: "lasso-rect",
 			zIndex: 200,
 			layer: this._lassoRectLayer,
@@ -50,7 +56,7 @@ export class Lasso extends PaintPlugin {
 		});
 
 		const lasso = new LassoBrush(this._lassoRectLayer.vCtx as CanvasRenderingContext2D);
-		instance.brushes.set("LASSO", lasso);
+		instance.brushManager.brushes.set("LASSO", lasso);
 
 		instance.keyListener.on("Enter:up", this.handlerEnterDown, [instance], this);
 	}
@@ -59,14 +65,14 @@ export class Lasso extends PaintPlugin {
 		if (instance.state === "CLIP") {
 			instance.state = "CLIPPING";
 			instance.clipStarted = true;
-			const lassoBrush = instance.brush as LassoBrush;
-			// 保存原始 boundBox(setMinBoundBox 会修改 LassoBrush.boundBox 的引用值)
+			const lassoBrush = instance.brushManager.brush as LassoBrush;
+			// 保存原始 boundBox(setMinBoundBox 会修改 LassoBrush.boundBox 的引用值
 			const origLeft = lassoBrush.boundBox.left;
 			const origTop = lassoBrush.boundBox.top;
 			const origRight = lassoBrush.boundBox.right;
 			const origBottom = lassoBrush.boundBox.bottom;
 
-			instance.clipedArea.imageData = instance.currentLayer.vCtx.getImageData(
+			instance.clipedArea.imageData = instance.layerManager.currentLayer.vCtx.getImageData(
 				origLeft,
 				origTop,
 				origRight - origLeft,
@@ -74,21 +80,21 @@ export class Lasso extends PaintPlugin {
 			);
 			lassoBrush.setMinBoundBox(instance.clipedArea.imageData);
 			instance.clipedArea.boundBox = lassoBrush.boundBox;
-			instance.clipedArea.imageData = instance.currentLayer.vCtx.getImageData(
+			instance.clipedArea.imageData = instance.layerManager.currentLayer.vCtx.getImageData(
 				lassoBrush.boundBox.left,
 				lassoBrush.boundBox.top,
 				lassoBrush.boundBox.right - lassoBrush.boundBox.left,
 				lassoBrush.boundBox.bottom - lassoBrush.boundBox.top,
 			);
 		} else if (instance.state === "CLIPPING") {
-			(instance.brush as LassoBrush).drawDot(undefined, false);
-			instance.putContent((instance.brush as LassoBrush).boundBox, this._lassoLayer.vCtx);
+			(instance.brushManager.brush as LassoBrush).drawDot(undefined, false);
+			instance.putContent((instance.brushManager.brush as LassoBrush).boundBox, this._lassoLayer.vCtx);
 			instance.canvasHistory.commitChange(
 				instance.clipedArea.boundBox,
-				instance.currentLayer,
-				(instance.brush as LassoBrush).boundBox,
+				instance.layerManager.currentLayer,
+				(instance.brushManager.brush as LassoBrush).boundBox,
 			);
-			instance.currentLayer.preCtx.putImageData(instance.getImageData(), 0, 0);
+			instance.layerManager.currentLayer.preCtx.putImageData(instance.getImageData(), 0, 0);
 			this.clipped = true;
 			instance.state = "CLIP";
 		}

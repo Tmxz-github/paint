@@ -17,15 +17,15 @@ onMounted(() => {
 	});
 	paint.value.pointerListener.on("MOVE", () => {
 		const div = document.querySelector("#pos")!;
-		div.innerHTML = `${paint.value?.cursor.curPos.x}:::${paint.value?.cursor.curPos.y}`;
+		div.innerHTML = `${paint.value?.cursorRenderer.cursor.curPos.x}:::${paint.value?.cursorRenderer.cursor.curPos.y}`;
 	});
 });
 
 const setLayer = (i: number) => {
 	if (!paint.value) return;
-	const layer = paint.value?.layers[i];
+	const layer = paint.value?.layerManager.layers[i];
 	if (!layer) return;
-	paint.value.currentLayer = layer;
+	paint.value.layerManager.currentLayer = layer;
 };
 const setLayerVisible = (v: boolean, i: number) => {
 	if (!paint.value) return;
@@ -78,8 +78,8 @@ const setLayerVisible = (v: boolean, i: number) => {
 			>
 				变浅
 			</button>
-			<button @click="paint?.rotateTo(paint.rotateDegree - 5)">左转</button>
-			<button @click="paint?.rotateTo(paint.rotateDegree + 5)">右转</button>
+			<button @click="paint?.rotateTo(paint.transform.rotation - 5)">左转</button>
+			<button @click="paint?.rotateTo(paint.transform.rotation + 5)">右转</button>
 		</div>
 		<div
 			id="canvas"
@@ -87,14 +87,14 @@ const setLayerVisible = (v: boolean, i: number) => {
 		></div>
 		<div>
 			<div
-				v-for="(_, i) in paint?.layers"
+				v-for="(_, i) in paint?.layerManager.layers"
 				@click="setLayer(i)"
 				:style="{
-					border: paint?.currentLayer === paint?.layers[i] ? '1px solid black' : '',
+					border: paint?.layerManager.currentLayer === paint?.layerManager.layers[i] ? '1px solid black' : '',
 				}"
 			>
 				<div
-					@click="setLayerVisible(!paint?.currentLayer.visible, i)"
+					@click="setLayerVisible(!paint?.layerManager.currentLayer.visible, i)"
 					style="width: 100px; border: 1px solid black"
 				>
 					可见

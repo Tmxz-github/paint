@@ -1,4 +1,4 @@
-import type { PaintMode } from ".";
+﻿import type { PaintMode } from ".";
 import type { Paint } from "..";
 import type { MyPointerEvent } from "../Input/pointer-listener";
 import type { BrushCommitData } from "../DefaultPlugins";
@@ -11,18 +11,18 @@ export class DrawMode implements PaintMode {
 	onPointerMove(_ev: MyPointerEvent) {
 		if (this.ctx.canDraw) {
 			this.ctx.lineBBox.left = Math.floor(
-				Math.min(this.ctx.lineBBox.left, this.ctx.cursor.curPos.x - this.ctx.brush.size),
+				Math.min(this.ctx.lineBBox.left, this.ctx.cursorRenderer.cursor.curPos.x - this.ctx.brushManager.brush.size),
 			);
 			this.ctx.lineBBox.right = Math.ceil(
-				Math.max(this.ctx.lineBBox.right, this.ctx.cursor.curPos.x + this.ctx.brush.size),
+				Math.max(this.ctx.lineBBox.right, this.ctx.cursorRenderer.cursor.curPos.x + this.ctx.brushManager.brush.size),
 			);
 			this.ctx.lineBBox.top = Math.floor(
-				Math.min(this.ctx.lineBBox.top, this.ctx.cursor.curPos.y - this.ctx.brush.size),
+				Math.min(this.ctx.lineBBox.top, this.ctx.cursorRenderer.cursor.curPos.y - this.ctx.brushManager.brush.size),
 			);
 			this.ctx.lineBBox.bottom = Math.ceil(
-				Math.max(this.ctx.lineBBox.bottom, this.ctx.cursor.curPos.y + this.ctx.brush.size),
+				Math.max(this.ctx.lineBBox.bottom, this.ctx.cursorRenderer.cursor.curPos.y + this.ctx.brushManager.brush.size),
 			);
-			this.ctx.draw(this.ctx.cursor.curPos);
+			this.ctx.draw(this.ctx.cursorRenderer.cursor.curPos);
 			this.drawing = true;
 		}
 	}
@@ -31,18 +31,18 @@ export class DrawMode implements PaintMode {
 		if (this.ctx.canvasReady && this.drawing) {
 			this.ctx.line.endLine();
 
-			this.ctx.canvasHistory.commitChange(this.ctx.lineBBox, this.ctx.currentLayer);
+			this.ctx.canvasHistory.commitChange(this.ctx.lineBBox, this.ctx.layerManager.currentLayer);
 
 			// 笔刷提交钩子
 			const commitData: BrushCommitData = {
-				brush: this.ctx.brush,
+				brush: this.ctx.brushManager.brush,
 				boundBox: this.ctx.lineBBox,
-				layer: this.ctx.currentLayer,
+				layer: this.ctx.layerManager.currentLayer,
 			};
 			this.ctx.plugins.forEach((p) => p.onBrushCommit?.(commitData));
 
-			this.ctx.currentLayer.preCtx.putImageData(this.ctx.getImageData(), 0, 0);
-			/** 每一笔绘制完后重制包围盒 */
+			this.ctx.layerManager.currentLayer.preCtx.putImageData(this.ctx.getImageData(), 0, 0);
+			/** 每一笔绘制完后重置包围盒 */
 			this.ctx.lineBBox = {
 				top: Infinity,
 				left: Infinity,

@@ -34,6 +34,7 @@ export { CanvasHistory } from "./Paint/CanvasHistory";
 
 // --- 光标 ---
 export { Cursor } from "./Paint/Cursor";
+export { CursorRenderer } from "./Paint/CursorRenderer";
 
 // --- 图层 ---
 export { Layer } from "./Paint/Layer";
@@ -51,6 +52,8 @@ export { BaseMode, type PaintMode } from "./Paint/Mode";
 // --- 输入事件 ---
 export { KeyListener } from "./Paint/Input/key-listener";
 export { PointerListener } from "./Paint/Input/pointer-listener";
+export { InputManager } from "./Paint/InputManager";
+export type { InputCallbacks } from "./Paint/InputManager";
 
 // --- 插件基类与内置插件 ---
 export { PaintPlugin, type BrushCommitData, type RenderContext } from "./Paint/DefaultPlugins";
