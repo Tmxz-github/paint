@@ -20,9 +20,11 @@ import { CanvasHistory } from "./CanvasHistory";
 import { createCanvasContext } from "./Utils/canvas";
 import { BaseMode, type PaintMode } from "./Mode";
 import { DrawMode } from "./Mode/drawMode";
-import type { PaintPlugin, RenderContext } from "./DefaultPlugins";
+import type { PaintPlugin } from "./DefaultPlugins";
 import { TransformManager } from "./Transform";
 import type { RenderLayerEntry } from "./RenderLayer";
+import { LayerManager } from "./LayerManager";
+import { RenderPipeline } from "./RenderPipeline";
 
 export interface PaintOption {
 	containerEl: HTMLElement;
@@ -133,7 +135,6 @@ export class Paint {
 	public _canDraw: boolean = true;
 	/** 剪切框内容以及范围 */
 	public readonly clipedArea: ClipedArea = ClipedArea.Empty;
-	public renderLayersRegistry: RenderLayerEntry[] = [];
 	public drawMode: DrawMode = new DrawMode(this);
 	public mode: PaintMode = this.drawMode;
 	public baseMode: BaseMode = new BaseMode(this);
@@ -142,8 +143,26 @@ export class Paint {
 	public readonly keyListener: KeyListener;
 	public readonly width: number = 512;
 	public readonly height: number = 512;
-	public readonly layers: Layer[] = [];
-	public currentLayer: Layer;
+
+	// --- 新增模块 ---
+	/** 图层管理器 */
+	public layerManager: LayerManager;
+	/** 渲染管线 */
+	public renderPipeline: RenderPipeline;
+
+	// --- 向后兼容 getter/setter ---
+	get layers(): Layer[] {
+		return this.layerManager.layers;
+	}
+	get currentLayer(): Layer {
+		return this.layerManager.currentLayer;
+	}
+	set currentLayer(v: Layer) {
+		this.layerManager.currentLayer = v;
+	}
+	get renderLayersRegistry(): RenderLayerEntry[] {
+		return this.renderPipeline.renderLayersRegistry;
+	}
 
 	constructor(option: PaintOption) {
 		let { containerEl, width, height } = option;
@@ -179,14 +198,19 @@ export class Paint {
 		}
 		this.viewCtx.imageSmoothingEnabled = false;
 
-		const initLayer = new Layer({
-			width: this.canvasElement.width,
-			height: this.canvasElement.height,
-		});
-		this.currentLayer = initLayer;
-		this.layers.push(this.currentLayer);
+		// 初始化 LayerManager（必须先于 mirrorCtx）
+		this.layerManager = new LayerManager(this.canvasElement.width, this.canvasElement.height);
 
 		this.mirrorCtx = createMirror<typeof this, CanvasRenderingContext2D>(this, ["currentLayer", "vCtx"]);
+
+		// 初始化 RenderPipeline
+		this.renderPipeline = new RenderPipeline(
+			this.viewCtx,
+			this.canvasElement,
+			() => this.backgroundColor,
+			() => this.layerManager.layers,
+			() => this.plugins,
+		);
 
 		this.canvasHistory = new CanvasHistory();
 
@@ -215,19 +239,17 @@ export class Paint {
 
 	/** 注册渲染层 */
 	public registerRenderLayer(entry: RenderLayerEntry): void {
-		this.unregisterRenderLayer(entry.id);
-		this.renderLayersRegistry.push(entry);
-		this.renderLayersRegistry.sort((a, b) => a.zIndex - b.zIndex);
+		this.renderPipeline.registerRenderLayer(entry);
 	}
 
 	/** 按 id 注销渲染层 */
 	public unregisterRenderLayer(id: string): void {
-		this.renderLayersRegistry = this.renderLayersRegistry.filter((e) => e.id !== id);
+		this.renderPipeline.unregisterRenderLayer(id);
 	}
 
 	/** 按插件 ID 清理所有渲染层 */
 	public unregisterPluginRenderLayers(pluginId: string): void {
-		this.renderLayersRegistry = this.renderLayersRegistry.filter((e) => e.pluginId !== pluginId);
+		this.renderPipeline.unregisterPluginRenderLayers(pluginId);
 	}
 
 	public eventBind() {
@@ -278,11 +300,7 @@ export class Paint {
 
 	/** 渲染放置画布的画板 */
 	public renderBackground() {
-		this.viewCtx.save();
-		this.viewCtx.setTransform(1, 0, 0, 1, 0, 0);
-		this.viewCtx.fillStyle = this.backgroundColor;
-		this.viewCtx.fillRect(0, 0, this.canvasElement.width, this.canvasElement.height);
-		this.viewCtx.restore();
+		this.renderPipeline.renderBackground();
 	}
 
 	/** 光标是否移出画布 */
@@ -376,36 +394,28 @@ export class Paint {
 	}
 
 	public clearView() {
-		this.viewCtx.clearRect(0, 0, this.canvasElement.width, this.canvasElement.height);
+		this.renderPipeline.clearView();
 	}
 
 	public clearCurLayer() {
-		this.currentLayer.vCtx.clearRect(0, 0, this.currentLayer.vCtx.canvas.width, this.currentLayer.vCtx.canvas.height);
+		this.layerManager.clearCurrentLayer();
 		this.renderLayers();
 	}
 
 	public clearLayer(i: number) {
-		const layer = this.layers[i];
+		const layer = this.layerManager.getLayer(i);
 		if (!layer) return;
 		layer.vCtx.clearRect(0, 0, layer.vCtx.canvas.width, layer.vCtx.canvas.height);
 		this.renderLayers();
 	}
 
 	public clearAll() {
-		for (const layer of this.layers) {
-			layer.vCtx.clearRect(0, 0, layer.vCtx.canvas.width, layer.vCtx.canvas.height);
-		}
-		this.clearView();
+		this.layerManager.clearAll();
+		this.renderPipeline.clearView();
 	}
 
 	public addNewLayer() {
-		const newLayer = new Layer({
-			width: this.canvasElement.width,
-			height: this.canvasElement.height,
-		});
-		this.layers.push(newLayer);
-
-		this.currentLayer = newLayer;
+		const newLayer = this.layerManager.addNewLayer(this.canvasElement.width, this.canvasElement.height);
 		// 图层变更钩子
 		for (const plugin of this.plugins) {
 			plugin.onLayerChange?.(newLayer);
@@ -414,37 +424,12 @@ export class Paint {
 	}
 
 	public renderLayers() {
-		const renderCtx: RenderContext = {
-			viewCtx: this.viewCtx,
-			timestamp: Date.now(),
-		};
-		// 渲染前钩子
-		for (const plugin of this.plugins) {
-			plugin.onRenderBefore?.(renderCtx);
-		}
-		// todo 局部刷新
-		this.renderBackground();
-		this.clearView();
-		for (const layer of this.layers) {
-			if (layer.visible) {
-				this.viewCtx.drawImage(layer.vCtx.canvas, 0, 0);
-			}
-		}
-		// 渲染所有已注册的插件渲染层（按 zIndex 排序）
-		for (const entry of this.renderLayersRegistry) {
-			this.viewCtx.drawImage(entry.layer.vCtx.canvas, 0, 0);
-		}
-		// 渲染后钩子
-		for (const plugin of this.plugins) {
-			plugin.onRenderAfter?.(renderCtx);
-		}
+		this.renderPipeline.renderLayers();
 	}
 
 	/** 设置图层信息，目前只设置是否可见 */
 	public setLayerInfo(v: boolean, i: number) {
-		const layer = this.layers[i];
-		if (!layer) return;
-		layer.visible = v;
+		this.layerManager.setLayerInfo(v, i);
 		this.renderLayers();
 	}
 
