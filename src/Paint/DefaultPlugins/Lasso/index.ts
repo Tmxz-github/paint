@@ -20,7 +20,7 @@ export class Lasso extends PaintPlugin {
 	private clipped: boolean = false;
 
 	apply(instance: Paint) {
-		this.on("SWITCH_BURSH", (data: AnyObject) => {
+		this.on("SWITCH_BRUSH", (data: AnyObject) => {
 			const type = data.type;
 			if (!type || typeof type !== "string") return;
 			if (type === "LASSO") {

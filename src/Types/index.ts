@@ -21,7 +21,7 @@ export interface DirPoint {
 
 export type AnyObject = Record<string, any>;
 
-export type PaintEvents = "SWITCH_BURSH";
+export type PaintEvents = "SWITCH_BRUSH";
 
 export type PointerTypes = "UP" | "DOWN" | "LINE" | "ENTER" | "CONTEXT" | "WHEEL" | "MOVE" | "LEAVE";
 

@@ -13,15 +13,7 @@ export class BrushManager {
 	/** 当前笔刷 */
 	public brush: BaseBrush;
 
-	constructor() {
-		this.brush = null as unknown as BaseBrush;
-	}
-
-	/**
-	 * 初始化默认笔刷
-	 * @param mirrorCtx 镜像上下文（用于创建笔刷）
-	 */
-	init(mirrorCtx: CanvasRenderingContext2D): void {
+	constructor(mirrorCtx: CanvasRenderingContext2D) {
 		const pen = new Pen(mirrorCtx, 2, 2, "black");
 		this.brushes.set("PEN", pen);
 		this.brush = pen;

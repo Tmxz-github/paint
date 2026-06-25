@@ -17,8 +17,6 @@ interface LayerDiff {
 	layer: Layer;
 	diff1: Diff;
 	diff2?: Diff;
-	// BoundBox: BoundBox;
-	// pixelDiff: PixelDiff[];
 }
 
 export class CanvasHistory {

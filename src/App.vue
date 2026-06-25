@@ -39,9 +39,9 @@ const setLayerVisible = (v: boolean, i: number) => {
 		<div>
 			<button @click="paint?.clearCurLayer">清空</button>
 			<button @click="paint?.addNewLayer">添加</button>
-			<button @click="paint?.swtichBrush('PEN')">笔</button>
-			<button @click="paint?.swtichBrush('ERASER')">橡皮</button>
-			<button @click="paint?.swtichBrush('LASSO')">套索</button>
+			<button @click="paint?.switchBrush('PEN')">笔</button>
+			<button @click="paint?.switchBrush('ERASER')">橡皮</button>
+			<button @click="paint?.switchBrush('LASSO')">套索</button>
 			<button
 				@click="
 					paint?.setBrushStyle({

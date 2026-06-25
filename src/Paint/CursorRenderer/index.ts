@@ -54,11 +54,6 @@ export class CursorRenderer {
 		this._grabbing = value;
 	}
 
-	/** 光标是否移出画布 */
-	public outCanvas(pos: Vec2D): boolean {
-		return pos.x > this.canvasElement.width || pos.x < 0 || pos.y > this.canvasElement.height || pos.y < 0;
-	}
-
 	/**
 	 * @param pos 光标在 canvas 元素上的坐标
 	 */

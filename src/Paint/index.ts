@@ -61,9 +61,9 @@ export class Paint {
 	/** 放置画布的画板背景色 */
 	public backgroundColor: string = "#f0f0f0";
 	/** 画布背景色 */
-	public canvacBackgroundColor: string = "#ffffff";
+	public canvasBackgroundColor: string = "#ffffff";
 	/** 笔刷管理器 */
-	public readonly brushManager: BrushManager = new BrushManager();
+	public readonly brushManager: BrushManager;
 	/** 同步笔刷 */
 	public mirrorBrush: BaseBrush;
 	/** 鼠标移动时划过的线，本质是点集合 */
@@ -74,8 +74,6 @@ export class Paint {
 	public clipStarted: boolean = false;
 	/** 确认修改的剪切内容 */
 	public clipped: boolean = false;
-	/** 画板是否处于光标按下状态 && 当前图层是否可见 && 非拖拽模式 */
-	public _canDraw: boolean = true;
 	/** 剪切框内容以及范围 */
 	public readonly clipedArea: ClipedArea = ClipedArea.Empty;
 	public drawMode: DrawMode = new DrawMode(this);
@@ -109,7 +107,7 @@ export class Paint {
 		containerEl.appendChild(this.canvasElement);
 		this.canvasElement.style.cursor = "none";
 		this.canvasElement.style.touchAction = "none";
-		this.canvasElement.style.backgroundColor = this.canvacBackgroundColor;
+		this.canvasElement.style.backgroundColor = this.canvasBackgroundColor;
 		this.canvasElement.width = this.width;
 		this.canvasElement.height = this.height;
 		this.viewCtx = this.canvasElement.getContext("2d")!;
@@ -127,6 +125,7 @@ export class Paint {
 			"currentLayer",
 			"vCtx",
 		]);
+		this.brushManager = new BrushManager(this.mirrorCtx);
 		this.renderPipeline = new RenderPipeline(
 			this.viewCtx,
 			this.canvasElement,
@@ -137,7 +136,6 @@ export class Paint {
 		this.canvasHistory = new CanvasHistory();
 		this.mirrorBrush = createMirror<typeof this, BaseBrush>(this, ["brushManager", "brush"]);
 		this.line = new Line(this.mirrorCtx, this.mirrorBrush);
-		this.brushManager.init(this.mirrorCtx);
 		this.cursorRenderer = new CursorRenderer(this.viewCtx, this.canvasElement);
 		this.inputManager = new InputManager(this.pointerListener, this.keyListener, {
 			onModePointerMove: (ev) => this.mode.onPointerMove(ev),
@@ -208,8 +206,8 @@ export class Paint {
 		return this.mirrorCtx.getImageData(sx, sy, sw, sh, settings);
 	}
 
-	public swtichBrush(type: BrushTypes) {
-		this.emitEvent("SWITCH_BURSH", { type });
+	public switchBrush(type: BrushTypes) {
+		this.emitEvent("SWITCH_BRUSH", { type });
 		if (type === "PEN") {
 			this.state = "DRAW";
 			this.renderLayers();
