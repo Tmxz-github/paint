@@ -1,5 +1,5 @@
-import type { DirPoint } from "../../Types";
-import { Vec2D } from "../../Types/vec2d";
+import type { DirPoint } from "../Types";
+import { Vec2D } from "../Types/vec2d";
 
 export const genBezierPoints = (startPoint: DirPoint, endPoint: DirPoint, resolution: number = 20): Vec2D[] => {
 	const [controlPoint1, controlPoint2] = [

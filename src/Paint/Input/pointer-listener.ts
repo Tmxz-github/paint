@@ -1,4 +1,4 @@
-import type { MyPointerEvent, PointerTypes } from "../../Types";
+import type { MyPointerEvent, PointerTypes } from "../Types";
 
 export type { MyPointerEvent };
 

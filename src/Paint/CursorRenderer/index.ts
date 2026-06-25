@@ -1,5 +1,5 @@
 import { Cursor } from "../Cursor";
-import type { Vec2D } from "../../Types";
+import type { Vec2D } from "../Types";
 
 export class CursorRenderer {
 	/** 光标 */

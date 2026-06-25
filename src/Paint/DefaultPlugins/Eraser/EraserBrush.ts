@@ -1,4 +1,4 @@
-import type { Vec2D } from "../../../Types";
+import type { Vec2D } from "../../Types";
 import { BaseBrush } from "../../Brushes/BaseBrush";
 
 export class EraserBrush extends BaseBrush {

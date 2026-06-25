@@ -5,8 +5,8 @@ import {
 	type PaintState,
 	type PaintEvents,
 	type AnyObject,
-} from "../Types";
-import { Vec2D } from "../Types/vec2d";
+} from "./Types";
+import { Vec2D } from "./Types/vec2d";
 import { KeyListener } from "./Input/key-listener";
 import { Line } from "./Line";
 import { BrushManager } from "./BrushManager";

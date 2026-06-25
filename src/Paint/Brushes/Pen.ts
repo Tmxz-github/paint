@@ -1,5 +1,5 @@
 import type { BrushStyle } from ".";
-import type { Vec2D } from "../../Types";
+import type { Vec2D } from "../Types";
 import { BaseBrush } from "./BaseBrush";
 
 export class Pen extends BaseBrush {

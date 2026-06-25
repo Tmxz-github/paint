@@ -1,8 +1,8 @@
 import type { Paint } from "..";
-import type { AnyObject, PaintEvents } from "../../Types";
+import type { AnyObject, PaintEvents } from "../Types";
 import type { Layer } from "../Layer";
 import type { BaseBrush } from "../Brushes";
-import type { BoundBox } from "../../Types";
+import type { BoundBox } from "../Types";
 
 /** 笔刷提交数据，一笔绘制完成后传递给插件 */
 export interface BrushCommitData {

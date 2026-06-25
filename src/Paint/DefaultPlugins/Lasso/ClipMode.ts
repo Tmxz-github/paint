@@ -2,7 +2,7 @@
 import type { Paint } from "../..";
 import { LassoBrush } from "./LassoBrush";
 import type { MyPointerEvent } from "../../Input/pointer-listener";
-import { Vec2D } from "../../../Types/vec2d";
+import { Vec2D } from "../../Types/vec2d";
 import { deepClone, inBBox } from "../../Utils";
 import type { Lasso } from ".";
 import type { Layer } from "../../Layer";

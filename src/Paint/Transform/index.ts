@@ -1,6 +1,6 @@
-import { Vec2D } from "../../Types/vec2d";
+import { Vec2D } from "../Types/vec2d";
 import { CircleClamp, Clamp } from "../Utils";
-import type { ZoomOptions } from "../../Types";
+import type { ZoomOptions } from "../Types";
 
 /**
  * TransformManager - Canvas 变换管理

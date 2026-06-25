@@ -1,6 +1,6 @@
 import { Pen } from "../Brushes/Pen";
-import type { DirPoint } from "../../Types";
-import { Vec2D } from "../../Types/vec2d";
+import type { DirPoint } from "../Types";
+import { Vec2D } from "../Types/vec2d";
 import { Clamp, deepClone, easeOutDecay, Mix } from "../Utils";
 import { genBezierPoints } from "../Utils/line";
 import { PointsLine } from "./PointsLine";

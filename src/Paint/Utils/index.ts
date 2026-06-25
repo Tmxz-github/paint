@@ -1,4 +1,4 @@
-import type { BoundBox, Vec2D } from "../../Types";
+import type { BoundBox, Vec2D } from "../Types";
 
 /** a * (1 - f) + b * f  */
 export const Mix = (a: number, b: number, f: number): number => {

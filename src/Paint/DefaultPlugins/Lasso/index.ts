@@ -1,7 +1,7 @@
 ﻿import { PaintPlugin } from "..";
 import type { Paint } from "../..";
 import { Layer } from "../../Layer";
-import type { AnyObject } from "../../../Types";
+import type { AnyObject } from "../../Types";
 import { ClipMode } from "./ClipMode";
 import { LassoBrush } from "./LassoBrush";
 

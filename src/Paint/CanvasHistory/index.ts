@@ -1,5 +1,5 @@
 import { Layer } from "../Layer";
-import type { BoundBox, Vec2D } from "../../Types";
+import type { BoundBox, Vec2D } from "../Types";
 import { deepClone } from "../Utils";
 
 interface PixelDiff {

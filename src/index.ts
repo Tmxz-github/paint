@@ -17,7 +17,7 @@ export {
 	type PaintEvents,
 	type PointerTypes,
 	type MyPointerEvent,
-} from "./Types";
+} from "./Paint/Types";
 
 // --- 常量 ---
 export { TRANSPARENT } from "./Paint/constants";

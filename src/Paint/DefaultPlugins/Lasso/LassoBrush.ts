@@ -1,7 +1,7 @@
 import { BaseBrush } from "../../Brushes";
 import { TRANSPARENT } from "../../constants";
-import { BoundBox } from "../../../Types";
-import { Vec2D } from "../../../Types/vec2d";
+import { BoundBox } from "../../Types";
+import { Vec2D } from "../../Types/vec2d";
 
 export class LassoBrush extends BaseBrush {
 	public get startPoint(): Vec2D {
