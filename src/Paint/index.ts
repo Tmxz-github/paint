@@ -1,11 +1,4 @@
-import {
-	BoundBox,
-	ClipedArea,
-	type ZoomOptions,
-	type PaintState,
-	type PaintEvents,
-	type AnyObject,
-} from "./Types";
+import { BoundBox, ClipedArea, type ZoomOptions, type PaintState, type PaintEvents, type AnyObject } from "./Types";
 import { Vec2D } from "./Types/vec2d";
 import { KeyListener } from "./Input/key-listener";
 import { Line } from "./Line";
@@ -34,8 +27,6 @@ export interface PaintOption {
 export class Paint {
 	/** 光标渲染器 */
 	public readonly cursorRenderer: CursorRenderer;
-	/** 输入管理器 */
-	public readonly inputManager: InputManager;
 	/** 变换管理器 */
 	public readonly transform: TransformManager;
 	/** 绘制历史，只记录笔的绘制 */
@@ -71,20 +62,24 @@ export class Paint {
 	public canvasElement: HTMLCanvasElement;
 	/** 视窗绘制上下文，只负责最终渲染，所有绘制应先在其余离线 canvas 上绘制后再合并绘制到 viewCtx 中 */
 	public viewCtx: CanvasRenderingContext2D;
-	/** 每一笔绘制后的包围盒 */
-	public lineBBox: BoundBox = BoundBox.Empty;
 	/** 画布已经点击 */
 	public canvasReady: boolean = false;
 	/** 放置画布的画板背景色 */
 	public backgroundColor: string = "#f0f0f0";
 	/** 画布背景色 */
-	public canvasBackgroundColor: string = "#ffffff";
+	public canvasBackgroundColor: string = "#66ccff";
 	public state: PaintState = "DRAW";
-	/** 开始修改剪切内容 */
-	public clipStarted: boolean = false;
-	public drawMode: DrawMode = new DrawMode(this);
-	public mode: PaintMode = this.drawMode;
-	public baseMode: BaseMode = new BaseMode(this);
+	private drawMode: DrawMode = new DrawMode(this);
+	private _mode: PaintMode = this.drawMode;
+	get mode() {
+		return this._mode;
+	}
+	set mode(newMode) {
+		newMode.onEnterMode(undefined);
+		this._mode.onLeaveMode(undefined);
+		this._mode = newMode;
+	}
+	public baseMode: BaseMode;
 
 	constructor(option: PaintOption) {
 		let { containerEl, width, height } = option;
@@ -137,37 +132,11 @@ export class Paint {
 		this.mirrorBrush = createMirror<typeof this, BaseBrush>(this, ["brushManager", "brush"]);
 		this.line = new Line(this.mirrorCtx, this.mirrorBrush);
 		this.cursorRenderer = new CursorRenderer(this.viewCtx, this.canvasElement);
-		this.inputManager = new InputManager(this.pointerListener, this.keyListener, {
-			onModePointerMove: (ev) => this.mode.onPointerMove(ev),
-			onModePointerDown: (ev) => this.mode.onPointerDown(ev),
-			onModePointerUp: (ev) => this.mode.onPointerUp(ev),
-			onModePointerLeave: (ev) => this.mode.onPointerLeave(ev),
-			onModePointerEnter: (ev) => this.mode.onPointerEnter(ev),
-			onModePointerWheel: (ev) => this.mode.onWheel(ev),
-			onBasePointerMove: (ev) => this.baseMode.onPointerMove(ev),
-			onBasePointerDown: (ev) => this.baseMode.onPointerDown(ev),
-			onBasePointerUp: (ev) => this.baseMode.onPointerUp(ev),
-			onBasePointerLeave: (ev) => this.baseMode.onPointerLeave(ev),
-			onBasePointerEnter: (ev) => this.baseMode.onPointerEnter(ev),
-			onBasePointerWheel: (ev) => this.baseMode.onWheel(ev),
-			onGrabReady: (active) => {
-				this.cursorRenderer.grabReady = active;
-			},
-			onGrabbingEnd: () => {
-				this.cursorRenderer.grabbing = false;
-			},
-			onUndo: () => {
-				this.canvasHistory.undo();
-				this.renderLayers();
-			},
-			onRedo: () => {
-				this.canvasHistory.redo();
-				this.renderLayers();
-			},
-			onZoomIn: () => this.zoomIn({ zoomMode: "keyboard" }),
-			onZoomOut: () => this.zoomOut({ zoomMode: "keyboard" }),
-		});
 		this.transform.applyTo(this.viewCtx);
+
+		this.baseMode = new BaseMode(this);
+		this.baseMode.onEnterMode(undefined);
+		this.mode = new DrawMode(this);
 
 		for (const plugin of this.plugins) {
 			plugin.apply(this);
