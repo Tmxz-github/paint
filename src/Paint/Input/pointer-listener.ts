@@ -6,6 +6,7 @@ type EventCallBack = (e: MyPointerEvent) => void;
 
 export class PointerListener {
 	private evs: Map<PointerTypes, EventCallBack[]> = new Map();
+	private _boundCbs: WeakMap<Function, EventCallBack> = new Map();
 
 	constructor(private element: HTMLElement) {
 		this.element.addEventListener("pointerdown", (e) => {
@@ -107,13 +108,30 @@ export class PointerListener {
 	}
 
 	on(evType: PointerTypes, cb: EventCallBack, env?: object) {
+		const bound = cb.bind(env);
+		this._boundCbs.set(cb, bound);
 		cb = cb.bind(env);
 		let cbs = this.evs.get(evType);
 		if (!cbs) {
 			cbs = [];
 			this.evs.set(evType, cbs);
 		}
-		cbs.push(cb);
+		cbs.push(bound);
+	}
+
+	offAll(evType: PointerTypes) {
+		this.evs.delete(evType);
+	}
+
+	off(evType: PointerTypes, cb: Function) {
+		const bound = this._boundCbs.get(cb);
+		if (!bound) return;
+		const cbs = this.evs.get(evType);
+		if (!cbs) return;
+		let i = cbs.findIndex((f) => f === cb);
+		if (i < 0) return;
+		cbs.splice(i, 1);
+		this._boundCbs.delete(cb);
 	}
 
 	emit(e: MyPointerEvent) {

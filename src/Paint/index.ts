@@ -4,7 +4,6 @@ import { KeyListener } from "./Input/key-listener";
 import { Line } from "./Line";
 import { BrushManager } from "./BrushManager";
 import { CursorRenderer } from "./CursorRenderer";
-import { InputManager } from "./InputManager";
 import { PointerListener } from "./Input/pointer-listener";
 import type { BaseBrush, BrushStyle, BrushTypes } from "./Brushes";
 import { createMirror } from "./Utils";

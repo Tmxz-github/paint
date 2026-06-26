@@ -11,14 +11,14 @@ export class DrawMode implements PaintMode {
 	private lineBBox: BoundBox = BoundBox.Empty;
 	constructor(private ctx: Paint) {}
 	onEnterMode(data: any): void {
-		this.ctx.pointerListener.on("MOVE", (ev: MyPointerEvent) => {
-			this.onPointerMove(ev);
-		});
-		this.ctx.pointerListener.on("UP", (ev: MyPointerEvent) => {
-			this.onPointerUp(ev);
-		});
+		this.ctx.state = "DRAW";
+		this.ctx.pointerListener.on("MOVE", this.onPointerMove, this);
+		this.ctx.pointerListener.on("UP", this.onPointerUp, this);
 	}
-	onLeaveMode(data: any): void {}
+	onLeaveMode(data: any): void {
+		this.ctx.pointerListener.off("MOVE", this.onPointerMove);
+		this.ctx.pointerListener.off("UP", this.onPointerUp);
+	}
 	onPointerMove(_ev: MyPointerEvent) {
 		if (this.ctx.canDraw && this.ctx.state === "DRAW") {
 			this.lineBBox.left = Math.floor(
@@ -38,7 +38,7 @@ export class DrawMode implements PaintMode {
 		}
 	}
 	onPointerUp(_ev: MyPointerEvent) {
-		if (this.ctx.canvasReady && this.drawing && this.ctx.state === "DRAW") {
+		if (this.drawing) {
 			this.ctx.line.endLine();
 
 			this.ctx.canvasHistory.commitChange(this.lineBBox, this.ctx.layerManager.currentLayer);

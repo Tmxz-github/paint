@@ -186,6 +186,7 @@ export class KeyListener {
 	}
 
 	private evs: Map<string, Function[]> = new Map();
+	private _boundCbs: Map<Function, Function> = new Map();
 
 	private curKeyState: KeyState = new KeyState();
 
@@ -330,14 +331,13 @@ export class KeyListener {
 
 	on(key: KeyboardKey, cb: Function, args: any[] = [], env?: object) {
 		key = key.toLowerCase() as KeyboardKey;
-		this.keyHandler(
-			key,
-			env
-				? cb.bind(env, ...args)
-				: () => {
-						cb(...args);
-					},
-		);
+		const bound = env
+			? cb.bind(env, ...args)
+			: () => {
+					cb(...args);
+				};
+		this._boundCbs.set(cb, bound);
+		this.keyHandler(key, bound);
 	}
 
 	offAll(key: KeyboardKey) {
@@ -347,10 +347,13 @@ export class KeyListener {
 
 	off(key: KeyboardKey, cb: Function) {
 		key = key.toLowerCase() as KeyboardKey;
+		const bound = this._boundCbs.get(cb);
+		if (!bound) return;
 		const cbs = this.evs.get(key) || [];
-		let i = cbs.findIndex((f) => f === cb);
+		let i = cbs.findIndex((f) => f === bound);
 		if (i < 0) return;
 		cbs.splice(i, 1);
+		this._boundCbs.delete(cb);
 	}
 
 	emit(control: boolean, alt: boolean, shift: boolean, key?: string) {

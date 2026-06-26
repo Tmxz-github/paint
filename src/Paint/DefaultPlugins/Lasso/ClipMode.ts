@@ -22,20 +22,18 @@ export class ClipMode extends PaintMode {
 	onEnterMode(data: any): void {
 		this.ctx.state = "CLIP";
 		this.clipped = false;
-		this.ctx.pointerListener.on("MOVE", (ev: MyPointerEvent) => {
-			this.onPointerMove(ev);
-		});
-		this.ctx.pointerListener.on("DOWN", (ev: MyPointerEvent) => {
-			this.onPointerDown(ev);
-		});
-		this.ctx.pointerListener.on("UP", (ev: MyPointerEvent) => {
-			this.onPointerUp(ev);
-		});
+		this.ctx.pointerListener.on("MOVE", this.onPointerMove, this);
+		this.ctx.pointerListener.on("DOWN", this.onPointerDown, this);
+		this.ctx.pointerListener.on("UP", this.onPointerUp, this);
 		this.ctx.keyListener.on("Enter:down", this.onEnterDown, [this.ctx], this);
 	}
 
 	onLeaveMode(data: any): void {
 		this.offClip();
+		this.ctx.pointerListener.off("MOVE", this.onPointerMove);
+		this.ctx.pointerListener.off("DOWN", this.onPointerDown);
+		this.ctx.pointerListener.off("UP", this.onPointerUp);
+		this.ctx.keyListener.off("Enter:down", this.onEnterDown);
 	}
 
 	private onPointerMove({ pos }: MyPointerEvent) {
@@ -43,11 +41,14 @@ export class ClipMode extends PaintMode {
 			this.ctx.brushManager.brush.drawDot(this.ctx.cursorRenderer.cursor.curPos);
 			return;
 		}
-		const inBox = inBBox(this.ctx.cursorRenderer.cursor.curPos, (this.ctx.brushManager.brush as LassoBrush).boundBox);
-		if (this.ctx.state !== "CLIPPING" || !inBox || !this.ctx.canDraw) {
+		if (this.ctx.state !== "CLIPPING" || !this.ctx.canDraw) {
 			return;
 		}
 		const boundBox = (this.ctx.brushManager.brush as LassoBrush).boundBox;
+		const inBox = inBBox(this.ctx.cursorRenderer.cursor.curPos, boundBox);
+		if (!inBox) {
+			return;
+		}
 		if (this.clipStarted) {
 			// 清除当前图层上原剪切区域的内容
 			this.ctx.layerManager.currentLayer.vCtx.clearRect(
@@ -98,6 +99,7 @@ export class ClipMode extends PaintMode {
 		}
 	}
 	private onEnterDown() {
+		console.log("enter down", this.ctx.state);
 		if (this.ctx.state === "CLIP") {
 			this.ctx.state = "CLIPPING";
 			this.clipStarted = true;
@@ -136,12 +138,11 @@ export class ClipMode extends PaintMode {
 		}
 	}
 	private offClip() {
-		this.ctx.state = "DRAW";
 		this.lassoRectLayer.vCtx.clearRect(0, 0, this.ctx.width, this.ctx.height);
 		this.lassoLayer.vCtx.clearRect(0, 0, this.ctx.width, this.ctx.height);
 		if (!this.clipped) {
 			this.ctx.putContent(this.ctx.clipedArea.boundBox, this.lassoLayer.vCtx);
 		}
-		this.ctx.keyListener.off("Enter:up", this.onEnterDown);
+		this.ctx.keyListener.off("Enter:down", this.onEnterDown);
 	}
 }
