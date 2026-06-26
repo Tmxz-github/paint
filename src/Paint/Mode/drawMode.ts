@@ -40,7 +40,6 @@ export class DrawMode implements PaintMode {
 	onPointerUp(_ev: MyPointerEvent) {
 		if (this.drawing) {
 			this.ctx.line.endLine();
-
 			this.ctx.canvasHistory.commitChange(this.lineBBox, this.ctx.layerManager.currentLayer);
 
 			// 笔刷提交钩子

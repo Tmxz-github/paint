@@ -128,7 +128,7 @@ export class PointerListener {
 		if (!bound) return;
 		const cbs = this.evs.get(evType);
 		if (!cbs) return;
-		let i = cbs.findIndex((f) => f === cb);
+		let i = cbs.findIndex((f) => f === bound);
 		if (i < 0) return;
 		cbs.splice(i, 1);
 		this._boundCbs.delete(cb);

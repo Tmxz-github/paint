@@ -99,7 +99,6 @@ export class ClipMode extends PaintMode {
 		}
 	}
 	private onEnterDown() {
-		console.log("enter down", this.ctx.state);
 		if (this.ctx.state === "CLIP") {
 			this.ctx.state = "CLIPPING";
 			this.clipStarted = true;

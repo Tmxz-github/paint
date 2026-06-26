@@ -69,13 +69,13 @@ export class Paint {
 	public canvasBackgroundColor: string = "#66ccff";
 	public state: PaintState = "DRAW";
 	private drawMode: DrawMode = new DrawMode(this);
-	private _mode: PaintMode = this.drawMode;
+	private _mode!: PaintMode;
 	get mode() {
 		return this._mode;
 	}
 	set mode(newMode) {
 		newMode.onEnterMode(undefined);
-		this._mode.onLeaveMode(undefined);
+		this._mode?.onLeaveMode(undefined);
 		this._mode = newMode;
 	}
 	public baseMode: BaseMode;
