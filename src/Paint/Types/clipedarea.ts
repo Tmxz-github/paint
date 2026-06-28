@@ -6,7 +6,7 @@ export interface ClipedArea {
 }
 export class ClipedArea {
 	static readonly Empty: ClipedArea = {
-		boundBox: { top: 0, bottom: 0, left: 0, right: 0 },
+		boundBox: { top: Infinity, bottom: 0, left: Infinity, right: 0 },
 		imageData: new ImageData(1, 1),
 	};
 }

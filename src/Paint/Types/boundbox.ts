@@ -5,7 +5,7 @@ export interface BoundBox {
 	right: number;
 }
 export class BoundBox {
-	static readonly Empty: BoundBox = { top: 0, bottom: 0, left: 0, right: 0 };
+	static readonly Empty: BoundBox = { top: Infinity, bottom: 0, left: Infinity, right: 0 };
 
 	/** 合并两个包围盒，取并集 */
 	static merge(a: BoundBox, b: BoundBox): BoundBox {
