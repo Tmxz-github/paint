@@ -1,6 +1,7 @@
 import { Layer } from "../Layer";
 import type { RenderLayerEntry } from "../RenderLayer";
 import type { PaintPlugin, RenderContext } from "../DefaultPlugins";
+import type { BoundBox } from "../Types";
 
 /**
  * RenderPipeline - 渲染管线
@@ -36,6 +37,53 @@ export class RenderPipeline {
 
 	/** 完整渲染管线：渲染前钩子 → 背景 → 清空 → 图层 → 插件层 → 渲染后钩子 */
 	renderLayers(): void {
+		// 【脏区路径检测】检测所有图层的 dirtyRect，若存在脏区则走局部渲染路径
+		const layers = this.getLayers();
+		let hasDirty = false;
+		let mergedDirty: BoundBox | null = null;
+		for (const layer of layers) {
+			const dirty = layer.dirtyRect;
+			if (dirty !== null) {
+				hasDirty = true;
+				mergedDirty =
+					mergedDirty !== null
+						? {
+								top: Math.min(mergedDirty.top, dirty.top),
+								left: Math.min(mergedDirty.left, dirty.left),
+								bottom: Math.max(mergedDirty.bottom, dirty.bottom),
+								right: Math.max(mergedDirty.right, dirty.right),
+							}
+						: { ...dirty };
+			}
+		}
+		if (hasDirty && mergedDirty !== null) {
+			// 变换非单位矩阵时回退到全量渲染，避免脏区坐标与变换矩阵不一致
+			const transform = this.viewCtx.getTransform();
+			const isIdentity =
+				transform.a === 1 &&
+				transform.b === 0 &&
+				transform.c === 0 &&
+				transform.d === 1 &&
+				transform.e === 0 &&
+				transform.f === 0;
+			if (!isIdentity) {
+				// 非单位变换：清除脏区标记后走全量渲染路径
+				for (const layer of layers) {
+					if (layer.dirtyRect !== null) {
+						layer.clearDirty();
+					}
+				}
+			} else {
+				this.renderRange(mergedDirty);
+				for (const layer of layers) {
+					if (layer.dirtyRect !== null) {
+						layer.clearDirty();
+					}
+				}
+				return;
+			}
+		}
+
 		const renderCtx: RenderContext = {
 			viewCtx: this.viewCtx,
 			timestamp: Date.now(),
@@ -51,7 +99,6 @@ export class RenderPipeline {
 		this.clearView();
 
 		// 绘制所有可见图层
-		const layers = this.getLayers();
 		for (const layer of layers) {
 			if (layer.visible) {
 				this.viewCtx.drawImage(layer.vCtx.canvas, 0, 0);
@@ -64,6 +111,49 @@ export class RenderPipeline {
 		}
 
 		// 渲染后钩子
+		for (const plugin of plugins) {
+			plugin.onRenderAfter?.(renderCtx);
+		}
+	}
+
+	/** 渲染指定范围：只重绘指定矩形区域内的内容 */
+	renderRange(rect: BoundBox): void {
+		const w = rect.right - rect.left;
+		const h = rect.bottom - rect.top;
+		if (w <= 0 || h <= 0) return;
+
+		const renderCtx: RenderContext = {
+			viewCtx: this.viewCtx,
+			timestamp: Date.now(),
+		};
+
+		const plugins = this.getPlugins();
+		for (const plugin of plugins) {
+			plugin.onRenderBefore?.(renderCtx);
+		}
+
+		const layers = this.getLayers();
+
+		// 局部渲染：clip 到脏区矩形，填充背景后绘制所有可见图层
+		this.viewCtx.save();
+		this.viewCtx.beginPath();
+		this.viewCtx.rect(rect.left, rect.top, w, h);
+		this.viewCtx.clip();
+
+		// 在裁剪区域内填充背景色（替代全量 renderBackground）
+		this.viewCtx.fillStyle = this.getBackgroundColor();
+		this.viewCtx.fillRect(rect.left, rect.top, w, h);
+
+		for (const layer of layers) {
+			if (layer.visible) {
+				this.viewCtx.drawImage(layer.vCtx.canvas, rect.left, rect.top, w, h, rect.left, rect.top, w, h);
+			}
+		}
+		for (const entry of this.renderLayersRegistry) {
+			this.viewCtx.drawImage(entry.layer.vCtx.canvas, rect.left, rect.top, w, h, rect.left, rect.top, w, h);
+		}
+		this.viewCtx.restore();
+
 		for (const plugin of plugins) {
 			plugin.onRenderAfter?.(renderCtx);
 		}

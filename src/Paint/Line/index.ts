@@ -1,6 +1,6 @@
 import { Pen } from "../Brushes/Pen";
 import type { DirPoint } from "../Types";
-import { Vec2D } from "../Types/vec2d";
+import { BoundBox, Vec2D } from "../Types";
 import { Clamp, deepClone, easeOutDecay, Mix } from "../Utils";
 import { genBezierPoints } from "../Utils/line";
 import { PointsLine } from "./PointsLine";
@@ -11,13 +11,17 @@ export class Line {
 	private originPoints: DirPoint[] = [];
 	private lastPoint: Vec2D = { x: 0, y: 0 };
 	private bezierPoints: Vec2D[] = [];
+	private _currentDirtyRect: BoundBox | null = null;
+	private readonly _onDirty?: (rect: BoundBox) => void;
 
 	public pointsLine: PointsLine;
 
 	constructor(
 		private pathCtx: CanvasRenderingContext2D,
 		private brush: BaseBrush,
+		onDirty?: (rect: BoundBox) => void,
 	) {
+		this._onDirty = onDirty;
 		if (!brush) {
 			this.brush = new Pen(this.pathCtx, 2, 2, "black");
 		}
@@ -65,6 +69,16 @@ export class Line {
 			20,
 		);
 
+		// 计算当前 Bezier 段的脏区：从采样点计算包围盒，向外膨胀笔刷半径
+		const segmentBBox = BoundBox.inflate(
+			BoundBox.fromPoints(this.bezierPoints),
+			this.brush.size * 1.5, // 膨胀笔刷半径的 1.5 倍确保覆盖圆形笔触
+		);
+		this._currentDirtyRect = segmentBBox;
+		if (this._onDirty) {
+			this._onDirty(segmentBBox);
+		}
+
 		this.pointsLine.addPoints(this.bezierPoints);
 		this.renderLine();
 	}
@@ -94,5 +108,10 @@ export class Line {
 			}
 		}
 		this.lastDot = d - len;
+	}
+
+	/** 返回最近一次 lineTo 计算的脏区 */
+	getCurrentDirtyRect(): BoundBox | null {
+		return this._currentDirtyRect;
 	}
 }

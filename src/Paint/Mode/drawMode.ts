@@ -42,6 +42,9 @@ export class DrawMode implements PaintMode {
 			this.ctx.line.endLine();
 			this.ctx.canvasHistory.commitChange(this.lineBBox, this.ctx.layerManager.currentLayer);
 
+			// 标记整笔脏区，确保下一帧 renderLayers 只重绘受影响区域
+			this.ctx.layerManager.currentLayer.markDirty(this.lineBBox);
+
 			// 笔刷提交钩子
 			const commitData: BrushCommitData = {
 				brush: this.ctx.brushManager.brush,

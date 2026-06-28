@@ -123,13 +123,15 @@ export class Paint {
 		this.renderPipeline = new RenderPipeline(
 			this.viewCtx,
 			this.canvasElement,
-			() => this.backgroundColor,
+			() => this.canvasBackgroundColor,
 			() => this.layerManager.layers,
 			() => this.plugins,
 		);
 		this.canvasHistory = new CanvasHistory();
 		this.mirrorBrush = createMirror<typeof this, BaseBrush>(this, ["brushManager", "brush"]);
-		this.line = new Line(this.mirrorCtx, this.mirrorBrush);
+		this.line = new Line(this.mirrorCtx, this.mirrorBrush, (rect: BoundBox) => {
+			this.layerManager.currentLayer.markDirty(rect);
+		});
 		this.cursorRenderer = new CursorRenderer(this.viewCtx, this.canvasElement);
 		this.transform.applyTo(this.viewCtx);
 
@@ -181,6 +183,8 @@ export class Paint {
 			this.renderLayers();
 			this.mode = this.drawMode;
 		}
+		// 笔刷切换后清理脏区，避免旧脏区影响
+		this.layerManager.currentLayer.clearDirty();
 		this.brushManager.brush = this.brushManager.getBrush(type);
 	}
 
@@ -199,6 +203,13 @@ export class Paint {
 
 	public clearCurLayer() {
 		this.layerManager.clearCurrentLayer();
+		// 标记全画布为脏区，确保 renderLayers 正确更新视窗
+		this.layerManager.currentLayer.markDirty({
+			top: 0,
+			left: 0,
+			bottom: this.height,
+			right: this.width,
+		});
 		this.renderLayers();
 	}
 
@@ -206,6 +217,13 @@ export class Paint {
 		const layer = this.layerManager.getLayer(i);
 		if (!layer) return;
 		layer.vCtx.clearRect(0, 0, layer.vCtx.canvas.width, layer.vCtx.canvas.height);
+		// 标记全画布为脏区
+		layer.markDirty({
+			top: 0,
+			left: 0,
+			bottom: layer.vCtx.canvas.height,
+			right: layer.vCtx.canvas.width,
+		});
 		this.renderLayers();
 	}
 

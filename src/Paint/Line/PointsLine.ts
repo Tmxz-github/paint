@@ -1,4 +1,5 @@
 import { Vec2D } from "../Types/vec2d";
+import type { BoundBox } from "../Types";
 
 export class PointsLine {
 	constructor(points?: Vec2D[]) {
@@ -54,5 +55,23 @@ export class PointsLine {
 			result += this.segmentLines[i].length;
 		}
 		return result;
+	}
+
+	/** 返回所有 segment 点的包围盒 */
+	getBBox(): BoundBox {
+		if (this.segmentLines.length === 0) {
+			return { top: 0, left: 0, bottom: 0, right: 0 };
+		}
+		let top = Infinity;
+		let left = Infinity;
+		let bottom = -Infinity;
+		let right = -Infinity;
+		for (const seg of this.segmentLines) {
+			if (seg.x < left) left = seg.x;
+			if (seg.x > right) right = seg.x;
+			if (seg.y < top) top = seg.y;
+			if (seg.y > bottom) bottom = seg.y;
+		}
+		return { top, left, bottom, right };
 	}
 }

@@ -57,6 +57,9 @@ export class CanvasHistory {
 			);
 		}
 
+		// 标记脏区，确保 renderLayers 能拾取 undo/redo 的变化
+		data.layer.markDirty(data.diff1.boundBox);
+
 		// 同步 preCtx，确保下次 diff 计算正确
 		data.layer.snapshot();
 	}
