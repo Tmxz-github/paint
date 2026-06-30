@@ -10,7 +10,7 @@ export class BaseMode extends PaintMode {
 	constructor(private ctx: Paint) {
 		super();
 	}
-	onEnterMode(data: any) {
+	onEnterMode(_data: any) {
 		this.ctx.pointerListener.on("MOVE", (ev: MyPointerEvent) => {
 			this.onPointerMove(ev);
 		});
@@ -52,7 +52,7 @@ export class BaseMode extends PaintMode {
 			this.ctx.zoomOut();
 		});
 	}
-	onLeaveMode(data: any) {
+	onLeaveMode(_data: any) {
 		// todo off
 	}
 	private onPointerMove({ pos }: MyPointerEvent) {
@@ -82,7 +82,7 @@ export class BaseMode extends PaintMode {
 		this.ctx.canvasReady = false;
 		this.ctx.cursorRenderer.cursorIn = false;
 		this.ctx.line.endLine();
-		this.ctx.renderLayers();
+		this.ctx.renderPipeline.renderAll();
 	}
 	private onPointerEnter({ pos }: MyPointerEvent) {
 		this.ctx.cursorRenderer.pointerPos = pos;

@@ -17,7 +17,7 @@ onMounted(() => {
 	});
 	paint.value.pointerListener.on("MOVE", () => {
 		const div = document.querySelector("#pos")!;
-		div.innerHTML = `${paint.value?.cursorRenderer.cursor.curPos.x}:::${paint.value?.cursorRenderer.cursor.curPos.y}`;
+		div.innerHTML = `${paint.value?.cursorRenderer.canvasPos.x}:::${paint.value?.cursorRenderer.canvasPos.y}`;
 	});
 });
 

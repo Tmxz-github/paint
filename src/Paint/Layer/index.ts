@@ -1,6 +1,5 @@
 import { createCanvasContext } from "../Utils/canvas";
-import type { BoundBox } from "../Types";
-import { BoundBox as BoundBoxUtil } from "../Types";
+import { BoundBox } from "../Types";
 
 interface LayerOption {
 	width: number;
@@ -28,7 +27,7 @@ export class Layer {
 	/** 标记脏区域：如果已有脏区域则合并，否则直接赋值 */
 	public markDirty(rect: BoundBox): void {
 		if (this.dirtyRect !== null) {
-			this.dirtyRect = BoundBoxUtil.merge(this.dirtyRect, rect);
+			this.dirtyRect = BoundBox.merge(this.dirtyRect, rect);
 		} else {
 			this.dirtyRect = {
 				top: rect.top,

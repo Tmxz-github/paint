@@ -15,6 +15,9 @@ import type { PaintPlugin } from "./DefaultPlugins";
 import { TransformManager } from "./Transform";
 import { LayerManager } from "./LayerManager";
 import { RenderPipeline } from "./RenderPipeline";
+import { Layer } from "./Layer";
+import type { RenderLayerEntry } from "./RenderLayer";
+import { MouseTrajectory } from "./MouseTrajectory";
 
 export interface PaintOption {
 	containerEl: HTMLElement;
@@ -48,6 +51,10 @@ export class Paint {
 	public readonly mirrorBrush: BaseBrush;
 	/** 同步 currentLayer */
 	public readonly mirrorCtx: CanvasRenderingContext2D;
+	/** 光标离屏渲染层，通过 renderPipeline 合成到 viewCtx */
+	public readonly cursorLayer: Layer;
+	/** 鼠标轨迹数据（原始点 + 插值后的平滑点），供外部工具读取 */
+	public readonly mouseTrajectory: MouseTrajectory;
 
 	public readonly width: number = 512;
 	public readonly height: number = 512;
@@ -99,7 +106,7 @@ export class Paint {
 		containerEl.appendChild(this.canvasElement);
 		this.canvasElement.style.cursor = "none";
 		this.canvasElement.style.touchAction = "none";
-		this.canvasElement.style.backgroundColor = this.canvasBackgroundColor;
+		this.canvasElement.style.backgroundColor = this.backgroundColor;
 		this.canvasElement.width = this.width;
 		this.canvasElement.height = this.height;
 		this.viewCtx = this.canvasElement.getContext("2d")!;
@@ -124,15 +131,31 @@ export class Paint {
 			this.viewCtx,
 			this.canvasElement,
 			() => this.canvasBackgroundColor,
+			() => this.backgroundColor,
 			() => this.layerManager.layers,
 			() => this.plugins,
 		);
 		this.canvasHistory = new CanvasHistory();
 		this.mirrorBrush = createMirror<typeof this, BaseBrush>(this, ["brushManager", "brush"]);
-		this.line = new Line(this.mirrorCtx, this.mirrorBrush, (rect: BoundBox) => {
-			this.layerManager.currentLayer.markDirty(rect);
-		});
+		this.mouseTrajectory = new MouseTrajectory();
+		this.line = new Line(
+			this.mirrorCtx,
+			this.mirrorBrush,
+			(rect: BoundBox) => {
+				this.layerManager.currentLayer.markDirty(rect);
+			},
+			this.mouseTrajectory,
+		);
 		this.cursorRenderer = new CursorRenderer(this.viewCtx, this.canvasElement);
+		this.cursorLayer = this.cursorRenderer.cursorLayer;
+		// 将光标层注册为插件层（最高 zIndex 保证绘制在最上层）
+		const cursorEntry: RenderLayerEntry = {
+			id: "cursor-layer",
+			zIndex: 10000,
+			layer: this.cursorLayer,
+			pluginId: "__paint__",
+		};
+		this.renderPipeline.registerRenderLayer(cursorEntry);
 		this.transform.applyTo(this.viewCtx);
 
 		this.baseMode = new BaseMode(this);
@@ -143,6 +166,9 @@ export class Paint {
 			plugin.apply(this);
 			plugin.onInstalled?.();
 		}
+
+		// 初始渲染：填充画布背景并绘制所有图层
+		this.renderPipeline.renderAll();
 	}
 
 	/** 触发画板事件 */
@@ -150,20 +176,6 @@ export class Paint {
 		for (const plugin of this.plugins) {
 			plugin.acceptEvent(name, data);
 		}
-	}
-
-	/** 拖动剪切区域（渲染到指定的 lassoCtx） */
-	public grabContent(boundBox: BoundBox, lassoCtx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D) {
-		const targetPos = { x: boundBox.left, y: boundBox.top };
-		lassoCtx.putImageData(this.clipedArea.imageData, targetPos.x, targetPos.y);
-	}
-
-	/** 将剪切内容放置（清除指定的 lassoCtx） */
-	public putContent(boundBox: BoundBox, lassoCtx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D) {
-		const targetPos = { x: boundBox.left, y: boundBox.top };
-		const tmpContext = createCanvasContext(this.clipedArea.imageData);
-		lassoCtx.clearRect(boundBox.left, boundBox.top, boundBox.right - boundBox.left, boundBox.bottom - boundBox.top);
-		this.layerManager.currentLayer.vCtx.drawImage(tmpContext.canvas, targetPos.x - 0.5, targetPos.y - 0.5);
 	}
 
 	/** 获取 canvas 的 imageData */
@@ -185,7 +197,9 @@ export class Paint {
 		}
 		// 笔刷切换后清理脏区，避免旧脏区影响
 		this.layerManager.currentLayer.clearDirty();
-		this.brushManager.brush = this.brushManager.getBrush(type);
+		if (type !== "LASSO") {
+			this.brushManager.brush = this.brushManager.getBrush(type);
+		}
 	}
 
 	public setBrushStyle(options: Partial<BrushStyle>) {
@@ -248,6 +262,15 @@ export class Paint {
 	/** 设置图层信息，目前只设置是否可见 */
 	public setLayerInfo(v: boolean, i: number) {
 		this.layerManager.setLayerInfo(v, i);
+		const layer = this.layerManager.getLayer(i);
+		if (layer) {
+			layer.markDirty({
+				top: 0,
+				left: 0,
+				bottom: layer.vCtx.canvas.height,
+				right: layer.vCtx.canvas.width,
+			});
+		}
 		this.renderLayers();
 	}
 
@@ -257,13 +280,19 @@ export class Paint {
 		this.transform.pan(pos, this.cursorRenderer.grabStartPos);
 		this.cursorRenderer.grabStartPos = pos;
 		this.transform.applyTo(this.viewCtx);
-		this.renderLayers();
+		this.renderPipeline.renderAll();
+		if (this.cursorRenderer.cursorIn) {
+			this.cursorRenderer.render(this.cursorRenderer.pointerPos);
+		}
 	}
 
 	public rotateTo(degree: number) {
 		this.transform.rotateTo(degree);
 		this.transform.applyTo(this.viewCtx);
-		this.renderLayers();
+		this.renderPipeline.renderAll();
+		if (this.cursorRenderer.cursorIn) {
+			this.cursorRenderer.render(this.cursorRenderer.pointerPos);
+		}
 	}
 
 	/** @param pos 光标在画布上的坐标，由计算得到 */
@@ -274,18 +303,20 @@ export class Paint {
 	public zoomIn(options: ZoomOptions = {}) {
 		this.transform.zoomIn(options, () => {
 			this.transform.applyTo(this.viewCtx);
-			this.renderLayers();
-			if (!this.cursorRenderer.cursorIn) return;
-			this.cursorRenderer.render(this.cursorRenderer.pointerPos);
+			this.renderPipeline.renderAll();
+			if (this.cursorRenderer.cursorIn) {
+				this.cursorRenderer.render(this.cursorRenderer.pointerPos);
+			}
 		});
 	}
 
 	public zoomOut(options: ZoomOptions = {}) {
 		this.transform.zoomOut(options, () => {
 			this.transform.applyTo(this.viewCtx);
-			this.renderLayers();
-			if (!this.cursorRenderer.cursorIn) return;
-			this.cursorRenderer.render(this.cursorRenderer.pointerPos);
+			this.renderPipeline.renderAll();
+			if (this.cursorRenderer.cursorIn) {
+				this.cursorRenderer.render(this.cursorRenderer.pointerPos);
+			}
 		});
 	}
 }

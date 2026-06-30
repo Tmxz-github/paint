@@ -3,7 +3,7 @@ import type { Paint } from "../..";
 import { Layer } from "../../Layer";
 import type { AnyObject } from "../../Types";
 import { ClipMode } from "./ClipMode";
-import { LassoBrush } from "./LassoBrush";
+import { LassoSelector } from "./LassoSelector";
 
 export class Lasso extends PaintPlugin {
 	/** Lasso 内容渲染层 */
@@ -11,6 +11,8 @@ export class Lasso extends PaintPlugin {
 	/** Lasso 矩形框渲染层 */
 	private _lassoRectLayer!: Layer;
 	private mode!: ClipMode;
+	/** Lasso 选择器实例 */
+	public selector!: LassoSelector;
 
 	constructor() {
 		super();
@@ -33,7 +35,8 @@ export class Lasso extends PaintPlugin {
 			width: instance.width,
 			height: instance.height,
 		});
-		this.mode = new ClipMode(instance, this._lassoLayer, this._lassoRectLayer);
+		this.selector = new LassoSelector(this._lassoRectLayer.vCtx as CanvasRenderingContext2D);
+		this.mode = new ClipMode(instance, this._lassoLayer, this._lassoRectLayer, this.selector);
 		instance.renderPipeline.registerRenderLayer({
 			id: "lasso-content",
 			zIndex: 100,
@@ -46,7 +49,7 @@ export class Lasso extends PaintPlugin {
 			layer: this._lassoRectLayer,
 			pluginId: this.name,
 		});
-		const lasso = new LassoBrush(this._lassoRectLayer.vCtx as CanvasRenderingContext2D);
-		instance.brushManager.brushes.set("LASSO", lasso);
+		// LassoSelector 不注册到 brushes map（它不是笔刷）
+		// ClipMode 直接持有 selector 引用
 	}
 }

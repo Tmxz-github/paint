@@ -1,4 +1,5 @@
 import type { BoundBox, Vec2D } from "../Types";
+import type { DirPoint } from "../Types";
 
 /** a * (1 - f) + b * f  */
 export const Mix = (a: number, b: number, f: number): number => {
@@ -95,4 +96,81 @@ export const deepClone = <T>(obj: T): T => {
 /** 给定坐标是否在给定包围盒内 */
 export const inBBox = (pos: Vec2D, boundBox: BoundBox): boolean => {
 	return pos.x > boundBox.left && pos.x < boundBox.right && pos.y > boundBox.top && pos.y < boundBox.bottom;
+};
+
+/**
+ * 计算 DirPoint 沿 direction 方向延长后与 BoundBox 的相交点。
+ * 从原点 (point.x, point.y) 沿 (point.dir.x, point.dir.y) 方向发射射线，
+ * 返回与 BoundBox 四条边中最早相交的那个交点。
+ *
+ * 若没有有效交点（零向量方向），返回原点本身。
+ */
+export const extendToBoundBox = (point: DirPoint, boundBox: BoundBox): Vec2D => {
+	const { x: ox, y: oy } = point;
+	const dx = point.dir.x;
+	const dy = point.dir.y;
+
+	// 方向零向量 → 无法延申，返回原点
+	if (dx === 0 && dy === 0) {
+		return { x: ox, y: oy };
+	}
+
+	let bestT = Infinity;
+	let bestX = ox;
+	let bestY = oy;
+
+	// 检查与左右边界的交点
+	if (dx !== 0) {
+		// 左边界 x = left
+		const tLeft = (boundBox.left - ox) / dx;
+		if (tLeft > 0) {
+			const yAtLeft = oy + tLeft * dy;
+			if (yAtLeft >= boundBox.top && yAtLeft <= boundBox.bottom && tLeft < bestT) {
+				bestT = tLeft;
+				bestX = boundBox.left;
+				bestY = yAtLeft;
+			}
+		}
+		// 右边界 x = right
+		const tRight = (boundBox.right - ox) / dx;
+		if (tRight > 0) {
+			const yAtRight = oy + tRight * dy;
+			if (yAtRight >= boundBox.top && yAtRight <= boundBox.bottom && tRight < bestT) {
+				bestT = tRight;
+				bestX = boundBox.right;
+				bestY = yAtRight;
+			}
+		}
+	}
+
+	// 检查与上下边界的交点
+	if (dy !== 0) {
+		// 上边界 y = top
+		const tTop = (boundBox.top - oy) / dy;
+		if (tTop > 0) {
+			const xAtTop = ox + tTop * dx;
+			if (xAtTop >= boundBox.left && xAtTop <= boundBox.right && tTop < bestT) {
+				bestT = tTop;
+				bestX = xAtTop;
+				bestY = boundBox.top;
+			}
+		}
+		// 下边界 y = bottom
+		const tBottom = (boundBox.bottom - oy) / dy;
+		if (tBottom > 0) {
+			const xAtBottom = ox + tBottom * dx;
+			if (xAtBottom >= boundBox.left && xAtBottom <= boundBox.right && tBottom < bestT) {
+				bestT = tBottom;
+				bestX = xAtBottom;
+				bestY = boundBox.bottom;
+			}
+		}
+	}
+
+	if (bestT === Infinity) {
+		// 未找到有效交点（可能射线背离 BoundBox），返回原点
+		return { x: ox, y: oy };
+	}
+
+	return { x: bestX, y: bestY };
 };

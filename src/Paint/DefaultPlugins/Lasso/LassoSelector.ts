@@ -1,9 +1,9 @@
-import { BaseBrush } from "../../Brushes";
+import { BaseSelector } from "../../Selectors/BaseSelector";
 import { TRANSPARENT } from "../../constants";
 import { BoundBox } from "../../Types";
 import { Vec2D } from "../../Types/vec2d";
 
-export class LassoBrush extends BaseBrush {
+export class LassoSelector extends BaseSelector {
 	public get startPoint(): Vec2D {
 		return this._startPoint;
 	}
@@ -13,12 +13,9 @@ export class LassoBrush extends BaseBrush {
 		this._startPoint = value;
 	}
 
-	private _startPoint: Vec2D = { x: 0, y: 0 };
-	public preEndpoint: Vec2D = { x: 0, y: 0 };
+	private _startPoint: Vec2D = Vec2D.Zero;
+	public preEndpoint: Vec2D = Vec2D.Zero;
 	public boundBox: BoundBox = BoundBox.Empty;
-	constructor(brushCtx: CanvasRenderingContext2D) {
-		super(brushCtx, -1, -1, "transparent");
-	}
 
 	private drawRect(point1: Vec2D, point2: Vec2D): BoundBox {
 		if (Vec2D.Equal(point1, point2)) return BoundBox.Empty;
@@ -26,9 +23,9 @@ export class LassoBrush extends BaseBrush {
 		const right = Math.max(point1.x, point2.x);
 		const top = Math.min(point1.y, point2.y);
 		const bottom = Math.max(point1.y, point2.y);
-		this.brushCtx.beginPath();
-		this.brushCtx.rect(left, top, right - left, bottom - top);
-		this.brushCtx.stroke();
+		this.selectorCtx.beginPath();
+		this.selectorCtx.rect(left, top, right - left, bottom - top);
+		this.selectorCtx.stroke();
 
 		return { top, bottom, left, right };
 	}
@@ -60,7 +57,7 @@ export class LassoBrush extends BaseBrush {
 		// 从下往上扫描，找到最后一行非透明像素
 		for (let x = 0; x < pixelLength; x += 4) {
 			if (imageData.data[x + 3 + yb * pixelLength] !== TRANSPARENT) {
-				this.boundBox.bottom -= height - yb - 1;
+				this.boundBox.bottom -= height - yb - 2;
 				break;
 			}
 			if (x === pixelLength - 4) {
@@ -101,17 +98,18 @@ export class LassoBrush extends BaseBrush {
 			y: this.boundBox.top,
 		};
 
-		this.drawDot({ x: this.boundBox.right, y: this.boundBox.bottom });
+		this.drawSelection({ x: this.boundBox.right, y: this.boundBox.bottom });
 	}
 
-	public drawDot(point?: Vec2D, clear: boolean = true) {
-		this.brushCtx.save();
+	/** 绘制选区矩形 */
+	public drawSelection(point?: Vec2D, clear: boolean = true) {
+		this.selectorCtx.save();
 
-		this.brushCtx.fillStyle = "black";
-		this.brushCtx.lineDashOffset = 0.1;
+		this.selectorCtx.fillStyle = "black";
+		this.selectorCtx.lineDashOffset = 0.1;
 
 		if (clear) {
-			this.brushCtx.clearRect(0, 0, this.brushCtx.canvas.width, this.brushCtx.canvas.height);
+			this.selectorCtx.clearRect(0, 0, this.selectorCtx.canvas.width, this.selectorCtx.canvas.height);
 		}
 		if (point) {
 			this.preEndpoint = {
@@ -122,6 +120,18 @@ export class LassoBrush extends BaseBrush {
 		this.preEndpoint.x = Math.floor(this.preEndpoint.x) + 0.5;
 		this.preEndpoint.y = Math.floor(this.preEndpoint.y) + 0.5;
 		this.boundBox = this.drawRect(this.startPoint, this.preEndpoint);
-		this.brushCtx.restore();
+		this.selectorCtx.restore();
+	}
+
+	public getBoundBox(): BoundBox {
+		return this.boundBox;
+	}
+
+	public getStartPoint(): Vec2D {
+		return this._startPoint;
+	}
+
+	public setStartPoint(point: Vec2D): void {
+		this.startPoint = point;
 	}
 }

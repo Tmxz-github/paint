@@ -11,12 +11,6 @@ export interface BrushCommitData {
 	layer: Layer;
 }
 
-/** 渲染上下文，在渲染前后传递给插件 */
-export interface RenderContext {
-	viewCtx: CanvasRenderingContext2D;
-	timestamp: number;
-}
-
 export class PaintPlugin {
 	name: string = "default";
 	readonly events: Map<PaintEvents, Function[]> = new Map();
@@ -47,10 +41,10 @@ export class PaintPlugin {
 	public onUninstall?(): void;
 
 	/** 渲染前调用 */
-	public onRenderBefore?(ctx: RenderContext): void;
+	public onRenderBefore?(ctx: CanvasRenderingContext2D): void;
 
 	/** 渲染后调用 */
-	public onRenderAfter?(ctx: RenderContext): void;
+	public onRenderAfter?(ctx: CanvasRenderingContext2D): void;
 
 	/** 笔刷提交后调用（一笔绘制完成） */
 	public onBrushCommit?(data: BrushCommitData): void;

@@ -5,14 +5,16 @@ import { Clamp, deepClone, easeOutDecay, Mix } from "../Utils";
 import { genBezierPoints } from "../Utils/line";
 import { PointsLine } from "./PointsLine";
 import type { BaseBrush } from "../Brushes";
+import type { MouseTrajectory } from "../MouseTrajectory";
 
 export class Line {
 	private lastDot: number = 0;
 	private originPoints: DirPoint[] = [];
-	private lastPoint: Vec2D = { x: 0, y: 0 };
+	private lastPoint: Vec2D = Vec2D.Zero;
 	private bezierPoints: Vec2D[] = [];
 	private _currentDirtyRect: BoundBox | null = null;
 	private readonly _onDirty?: (rect: BoundBox) => void;
+	private readonly _mouseTrajectory?: MouseTrajectory;
 
 	public pointsLine: PointsLine;
 
@@ -20,8 +22,10 @@ export class Line {
 		private pathCtx: CanvasRenderingContext2D,
 		private brush: BaseBrush,
 		onDirty?: (rect: BoundBox) => void,
+		mouseTrajectory?: MouseTrajectory,
 	) {
 		this._onDirty = onDirty;
+		this._mouseTrajectory = mouseTrajectory;
 		if (!brush) {
 			this.brush = new Pen(this.pathCtx, 2, 2, "black");
 		}
@@ -29,11 +33,15 @@ export class Line {
 	}
 
 	public startLine(point: Vec2D) {
+		// 新一笔开始时清空上一笔的轨迹数据
+		this._mouseTrajectory?.clear();
+
 		this.originPoints.push({
 			x: point.x,
 			y: point.y,
-			dir: { x: 0, y: 0 },
+			dir: Vec2D.Zero,
 		});
+		this._mouseTrajectory?.addRawPoint(this.originPoints[this.originPoints.length - 1]);
 		this.brush.drawDot(point);
 	}
 
@@ -42,11 +50,13 @@ export class Line {
 			return [];
 		}
 		this.lastPoint = curPoint;
-		this.originPoints.push({
+		const newPoint: DirPoint = {
 			x: curPoint.x,
 			y: curPoint.y,
-			dir: { x: 0, y: 0 },
-		});
+			dir: Vec2D.Zero,
+		};
+		this.originPoints.push(newPoint);
+		this._mouseTrajectory?.addRawPoint(newPoint);
 
 		if (this.originPoints.length === 1) {
 			return;
@@ -68,6 +78,9 @@ export class Line {
 			this.originPoints[this.originPoints.length - 2],
 			20,
 		);
+
+		// 将插值后的平滑点写入外部轨迹数据
+		this._mouseTrajectory?.addSmoothedPoints(this.bezierPoints);
 
 		// 计算当前 Bezier 段的脏区：从采样点计算包围盒，向外膨胀笔刷半径
 		const segmentBBox = BoundBox.inflate(

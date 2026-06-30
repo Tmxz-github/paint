@@ -17,7 +17,7 @@ export class TransformManager {
 	/** 旋转角度（度） */
 	rotation: number = 0;
 	/** 画布偏移量 */
-	offset: Vec2D = { x: 0, y: 0 };
+	offset: Vec2D = Vec2D.Zero;
 
 	/** 最小缩放 */
 	minScale: number = 0.1;
@@ -31,12 +31,23 @@ export class TransformManager {
 
 	/** 上一帧的缩放值（用于 offset 补偿计算） */
 	private preScale: number = 1;
-	private readonly canvasWidth: number;
-	private readonly canvasHeight: number;
+	private readonly _canvasWidth: number;
+	private readonly _canvasHeight: number;
+
+	/** 画布宽度（只读） */
+	get width(): number {
+		return this._canvasWidth;
+	}
+	/** 画布高度（只读） */
+	get height(): number {
+		return this._canvasHeight;
+	}
 
 	constructor(canvasWidth: number, canvasHeight: number) {
-		this.canvasWidth = canvasWidth;
-		this.canvasHeight = canvasHeight;
+		this._canvasWidth = canvasWidth;
+		this._canvasHeight = canvasHeight;
+		this._canvasWidth = canvasWidth;
+		this._canvasHeight = canvasHeight;
 		this.keyboardZoomLevels = this.buildZoomLevels(1.5);
 		this.wheelZoomLevels = this.buildZoomLevels(1.1);
 	}
@@ -84,8 +95,8 @@ export class TransformManager {
 	 */
 	applyTo(ctx: CanvasRenderingContext2D): void {
 		const center = {
-			x: this.canvasWidth / 2,
-			y: this.canvasHeight / 2,
+			x: this._canvasWidth / 2,
+			y: this._canvasHeight / 2,
 		};
 		const rad = (this.rotation * Math.PI) / 180;
 		const cos = Math.cos(rad);
@@ -118,8 +129,8 @@ export class TransformManager {
 
 		if (!center) {
 			center = {
-				x: this.canvasWidth / 2,
-				y: this.canvasHeight / 2,
+				x: this._canvasWidth / 2,
+				y: this._canvasHeight / 2,
 			};
 		}
 
@@ -150,8 +161,8 @@ export class TransformManager {
 		if (this.scale === this.minScale && delta < 0) return;
 		if (this.scale === this.maxScale && delta > 0) return;
 		const center = options.center ?? {
-			x: this.canvasWidth / 2,
-			y: this.canvasHeight / 2,
+			x: this._canvasWidth / 2,
+			y: this._canvasHeight / 2,
 		};
 		const smooth = options.smooth ?? false;
 		const levels = options.zoomMode === "keyboard" ? this.keyboardZoomLevels : this.wheelZoomLevels;

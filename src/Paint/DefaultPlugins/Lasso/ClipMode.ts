@@ -1,25 +1,30 @@
 import { PaintMode } from "../../Mode";
 import type { Paint } from "../..";
-import { LassoBrush } from "./LassoBrush";
+import { LassoSelector } from "./LassoSelector";
 import type { MyPointerEvent } from "../../Input/pointer-listener";
 import { Vec2D } from "../../Types/vec2d";
 import { deepClone, inBBox } from "../../Utils";
 import { Layer } from "../../Layer";
+import { BoundBox, ClipedArea } from "../../Types";
 
 export class ClipMode extends PaintMode {
 	/** 开始修改剪切内容 */
-	public clipStarted: boolean = false;
+	private clipStarted: boolean = false;
+	/** 剪切框内容以及范围 */
+	private readonly clipedArea: ClipedArea = ClipedArea.Empty;
 	/** 已经确认修改的剪切内容 */
 	private clipped: boolean = false;
+
 	constructor(
 		private ctx: Paint,
 		private lassoLayer: Layer,
 		private lassoRectLayer: Layer,
+		private selector: LassoSelector,
 	) {
 		super();
 	}
 
-	onEnterMode(data: any): void {
+	onEnterMode(_data: any): void {
 		this.ctx.state = "CLIP";
 		this.clipped = false;
 		this.ctx.pointerListener.on("MOVE", this.onPointerMove, this);
@@ -28,7 +33,7 @@ export class ClipMode extends PaintMode {
 		this.ctx.keyListener.on("Enter:down", this.onEnterDown, [this.ctx], this);
 	}
 
-	onLeaveMode(data: any): void {
+	onLeaveMode(_data: any): void {
 		this.offClip();
 		this.ctx.pointerListener.off("MOVE", this.onPointerMove);
 		this.ctx.pointerListener.off("DOWN", this.onPointerDown);
@@ -38,28 +43,50 @@ export class ClipMode extends PaintMode {
 
 	private onPointerMove({ pos }: MyPointerEvent) {
 		if (this.ctx.canDraw && this.ctx.state === "CLIP") {
-			this.ctx.brushManager.brush.drawDot(this.ctx.cursorRenderer.cursor.curPos);
+			// 保存旧的包围盒用于脏区合并
+			const oldBox = { ...this.selector.boundBox };
+
+			this.selector.drawSelection(this.ctx.cursorRenderer.canvasPos);
+
+			// 合并新旧脏区：旧位置（被清除的矩形）+ 新位置（新绘制的矩形）
+			// 膨胀 2px 覆盖抗锯齿边缘
+			const mergedBox = BoundBox.inflate(
+				BoundBox.merge(
+					{ top: oldBox.top, left: oldBox.left, bottom: oldBox.bottom, right: oldBox.right },
+					{
+						top: this.selector.boundBox.top,
+						left: this.selector.boundBox.left,
+						bottom: this.selector.boundBox.bottom,
+						right: this.selector.boundBox.right,
+					},
+				),
+				2,
+			);
+			this.lassoRectLayer.markDirty(mergedBox);
 			return;
 		}
 		if (this.ctx.state !== "CLIPPING" || !this.ctx.canDraw) {
 			return;
 		}
-		const boundBox = (this.ctx.brushManager.brush as LassoBrush).boundBox;
-		const inBox = inBBox(this.ctx.cursorRenderer.cursor.curPos, boundBox);
+
+		const currentBox = this.selector.boundBox;
+		const inBox = inBBox(this.ctx.cursorRenderer.canvasPos, currentBox);
 		if (!inBox) {
 			return;
 		}
+
 		if (this.clipStarted) {
 			// 清除当前图层上原剪切区域的内容
 			this.ctx.layerManager.currentLayer.vCtx.clearRect(
-				boundBox.left,
-				boundBox.top,
-				boundBox.right - boundBox.left,
-				boundBox.bottom - boundBox.top,
+				currentBox.left,
+				currentBox.top,
+				currentBox.right - currentBox.left,
+				currentBox.bottom - currentBox.top,
 			);
+			this.ctx.layerManager.currentLayer.markDirty(currentBox);
 		}
+
 		// 计算拖拽偏移量：需反算 viewCtx 上的变换（旋转/缩放）得到正确的画布坐标偏移
-		// 当前 viewCtx 的变换矩阵由 this.ctx.applyTransform 设置
 		const t = this.ctx.viewCtx.getTransform();
 		const inverse = t.inverse();
 		const rawOffset = Vec2D.Sub(pos, this.ctx.cursorRenderer.clipGrabStartPos);
@@ -68,80 +95,162 @@ export class ClipMode extends PaintMode {
 			x: inverse.a * rawOffset.x + inverse.c * rawOffset.y,
 			y: inverse.b * rawOffset.x + inverse.d * rawOffset.y,
 		};
-		(this.ctx.brushManager.brush as LassoBrush).startPoint = Vec2D.Add(
-			(this.ctx.brushManager.brush as LassoBrush).startPoint,
-			offset,
-		);
 
+		// 保存偏移前的包围盒用于脏区合并
+		const oldBox = { ...currentBox };
+
+		this.selector.startPoint = Vec2D.Add(this.selector.startPoint, offset);
+
+		// 清除 lassoLayer 上旧位置的内容
 		const lassoCtx = this.lassoLayer.vCtx;
-		lassoCtx.clearRect(boundBox.left, boundBox.top, boundBox.right - boundBox.left, boundBox.bottom - boundBox.top);
-		this.ctx.brushManager.brush.drawDot(Vec2D.Add((this.ctx.brushManager.brush as LassoBrush).preEndpoint, offset));
-		this.ctx.grabContent((this.ctx.brushManager.brush as LassoBrush).boundBox, lassoCtx);
+		lassoCtx.clearRect(oldBox.left, oldBox.top, oldBox.right - oldBox.left, oldBox.bottom - oldBox.top);
+
+		// 在新的偏移位置绘制选区（clear=true 清空 lassoRectLayer 全画布）
+		this.selector.drawSelection(Vec2D.Add(this.selector.preEndpoint, offset));
+
+		// 将剪切内容放置到新的位置
+		this.grabContent(this.selector.boundBox);
+
+		// lassoRectLayer 的脏区：drawSelection 清空了旧 rect 区域并绘制了新 rect
+		// 膨胀 2px 覆盖抗锯齿边缘
+		const mergedRectBox = BoundBox.inflate(
+			BoundBox.merge(
+				{ top: oldBox.top, left: oldBox.left, bottom: oldBox.bottom, right: oldBox.right },
+				{
+					top: this.selector.boundBox.top,
+					left: this.selector.boundBox.left,
+					bottom: this.selector.boundBox.bottom,
+					right: this.selector.boundBox.right,
+				},
+			),
+			2,
+		);
+		this.lassoRectLayer.markDirty(mergedRectBox);
+
+		// lassoLayer 的脏区：旧位置已清除 + 新位置已放置内容
+		// 膨胀 2px 覆盖 putImageData / clearRect 的亚像素边缘
+		const mergedContentBox = BoundBox.inflate(
+			BoundBox.merge(
+				{ top: oldBox.top, left: oldBox.left, bottom: oldBox.bottom, right: oldBox.right },
+				{
+					top: this.selector.boundBox.top,
+					left: this.selector.boundBox.left,
+					bottom: this.selector.boundBox.bottom,
+					right: this.selector.boundBox.right,
+				},
+			),
+			2,
+		);
+		this.lassoLayer.markDirty(mergedContentBox);
 
 		this.ctx.cursorRenderer.clipGrabStartPos = pos;
-
 		this.clipStarted = false;
+
+		// 立即触发渲染，消除一帧延迟导致的残影
+		this.ctx.renderLayers();
 	}
+
 	private onPointerDown({ pos }: MyPointerEvent) {
 		if (this.ctx.state === "CLIP") {
-			(this.ctx.brushManager.brush as LassoBrush).startPoint = deepClone(this.ctx.cursorRenderer.cursor.curPos);
+			this.selector.startPoint = deepClone(this.ctx.cursorRenderer.canvasPos);
 		}
 		if (this.ctx.state === "CLIPPING") {
 			this.ctx.cursorRenderer.clipGrabStartPos = pos;
 		}
 	}
+
 	private onPointerUp(_ev: MyPointerEvent) {
 		if (this.ctx.state === "CLIP") {
-			(this.ctx.brushManager.brush as LassoBrush).drawDot(this.ctx.cursorRenderer.cursor.curPos);
+			this.selector.drawSelection(this.ctx.cursorRenderer.canvasPos);
 		}
 		if (this.ctx.state === "CLIPPING") {
-			(this.ctx.brushManager.brush as LassoBrush).drawDot(undefined, false);
+			this.selector.drawSelection(undefined, false);
 		}
 	}
+
 	private onEnterDown() {
 		if (this.ctx.state === "CLIP") {
 			this.ctx.state = "CLIPPING";
 			this.clipStarted = true;
-			const lassoBrush = this.ctx.brushManager.brush as LassoBrush;
-			// 保存原始 boundBox(setMinBoundBox 会修改 LassoBrush.boundBox 的引用值
-			const origLeft = lassoBrush.boundBox.left;
-			const origTop = lassoBrush.boundBox.top;
-			const origRight = lassoBrush.boundBox.right;
-			const origBottom = lassoBrush.boundBox.bottom;
+			// 保存原始 boundBox（setMinBoundBox 会修改 selector.boundBox 的引用值）
+			const origLeft = this.selector.boundBox.left;
+			const origTop = this.selector.boundBox.top;
+			const origRight = this.selector.boundBox.right;
+			const origBottom = this.selector.boundBox.bottom;
 
-			this.ctx.clipedArea.imageData = this.ctx.layerManager.currentLayer.vCtx.getImageData(
+			this.clipedArea.imageData = this.ctx.layerManager.currentLayer.vCtx.getImageData(
 				origLeft,
 				origTop,
 				origRight - origLeft,
 				origBottom - origTop,
 			);
-			lassoBrush.setMinBoundBox(this.ctx.clipedArea.imageData);
-			this.ctx.clipedArea.boundBox = lassoBrush.boundBox;
-			this.ctx.clipedArea.imageData = this.ctx.layerManager.currentLayer.vCtx.getImageData(
-				lassoBrush.boundBox.left,
-				lassoBrush.boundBox.top,
-				lassoBrush.boundBox.right - lassoBrush.boundBox.left,
-				lassoBrush.boundBox.bottom - lassoBrush.boundBox.top,
+			this.clipedArea.boundBox = this.selector.boundBox;
+			this.clipedArea.imageData = this.ctx.layerManager.currentLayer.vCtx.getImageData(
+				this.selector.boundBox.left,
+				this.selector.boundBox.top,
+				this.selector.boundBox.right - this.selector.boundBox.left,
+				this.selector.boundBox.bottom - this.selector.boundBox.top,
 			);
+
+			// 清除选框层（用户已确认选区，选框不应继续显示）
+			this.lassoRectLayer.vCtx.clearRect(0, 0, this.ctx.width, this.ctx.height);
+			this.selector.setMinBoundBox(this.clipedArea.imageData);
+			this.lassoRectLayer.markDirty({
+				top: 0,
+				left: 0,
+				bottom: this.ctx.height,
+				right: this.ctx.width,
+			});
 		} else if (this.ctx.state === "CLIPPING") {
-			(this.ctx.brushManager.brush as LassoBrush).drawDot(undefined, false);
-			this.ctx.putContent((this.ctx.brushManager.brush as LassoBrush).boundBox, this.lassoLayer.vCtx);
+			this.clipStarted = false;
+
+			// 清除选框层
+			this.lassoRectLayer.vCtx.clearRect(0, 0, this.ctx.width, this.ctx.height);
+			this.lassoRectLayer.markDirty({
+				top: 0,
+				left: 0,
+				bottom: this.ctx.height,
+				right: this.ctx.width,
+			});
+
+			// 清除内容预览层
+			const boundBox = this.selector.boundBox;
+			const lassoCtx = this.lassoLayer.vCtx;
+			lassoCtx.clearRect(boundBox.left, boundBox.top, boundBox.right - boundBox.left, boundBox.bottom - boundBox.top);
+			this.lassoLayer.markDirty(boundBox);
+
+			this.putContent(boundBox);
 			this.ctx.canvasHistory.commitChange(
-				this.ctx.clipedArea.boundBox,
+				this.clipedArea.boundBox,
 				this.ctx.layerManager.currentLayer,
-				(this.ctx.brushManager.brush as LassoBrush).boundBox,
+				this.selector.boundBox,
 			);
 			this.ctx.layerManager.currentLayer.preCtx.putImageData(this.ctx.getImageData(), 0, 0);
 			this.clipped = true;
 			this.ctx.state = "CLIP";
 		}
 	}
+
 	private offClip() {
+		const fullDirty = { top: 0, left: 0, bottom: this.ctx.height, right: this.ctx.width };
 		this.lassoRectLayer.vCtx.clearRect(0, 0, this.ctx.width, this.ctx.height);
+		this.lassoRectLayer.markDirty(fullDirty);
 		this.lassoLayer.vCtx.clearRect(0, 0, this.ctx.width, this.ctx.height);
+		this.lassoLayer.markDirty(fullDirty);
 		if (!this.clipped) {
-			this.ctx.putContent(this.ctx.clipedArea.boundBox, this.lassoLayer.vCtx);
+			this.putContent(this.clipedArea.boundBox);
 		}
-		this.ctx.keyListener.off("Enter:down", this.onEnterDown);
+	}
+
+	/** 拖动剪切区域 */
+	private grabContent(boundBox: BoundBox) {
+		const targetPos = { x: Math.round(boundBox.left), y: Math.round(boundBox.top) };
+		this.lassoLayer.vCtx.putImageData(this.clipedArea.imageData, targetPos.x, targetPos.y);
+	}
+
+	/** 将剪切内容放置到目标图层的指定位置 */
+	private putContent(boundBox: BoundBox) {
+		const targetPos = { x: Math.round(boundBox.left), y: Math.round(boundBox.top) };
+		this.ctx.layerManager.currentLayer.vCtx.putImageData(this.clipedArea.imageData, targetPos.x, targetPos.y);
 	}
 }

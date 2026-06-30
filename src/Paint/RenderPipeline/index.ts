@@ -1,7 +1,7 @@
 import { Layer } from "../Layer";
 import type { RenderLayerEntry } from "../RenderLayer";
-import type { PaintPlugin, RenderContext } from "../DefaultPlugins";
-import type { BoundBox } from "../Types";
+import type { PaintPlugin } from "../DefaultPlugins";
+import { BoundBox } from "../Types";
 
 /**
  * RenderPipeline - 渲染管线
@@ -17,15 +17,16 @@ export class RenderPipeline {
 		private readonly viewCtx: CanvasRenderingContext2D,
 		private readonly canvasElement: HTMLCanvasElement,
 		private readonly getBackgroundColor: () => string,
+		private readonly getBoardColor: () => string,
 		private readonly getLayers: () => Layer[],
 		private readonly getPlugins: () => PaintPlugin[],
 	) {}
 
-	/** 渲染画板背景 */
+	/** 渲染画板背景（画板底色，在画布“之后”的灰色层） */
 	renderBackground(): void {
 		this.viewCtx.save();
 		this.viewCtx.setTransform(1, 0, 0, 1, 0, 0);
-		this.viewCtx.fillStyle = this.getBackgroundColor();
+		this.viewCtx.fillStyle = this.getBoardColor();
 		this.viewCtx.fillRect(0, 0, this.canvasElement.width, this.canvasElement.height);
 		this.viewCtx.restore();
 	}
@@ -38,81 +39,49 @@ export class RenderPipeline {
 	/** 完整渲染管线：渲染前钩子 → 背景 → 清空 → 图层 → 插件层 → 渲染后钩子 */
 	renderLayers(): void {
 		// 【脏区路径检测】检测所有图层的 dirtyRect，若存在脏区则走局部渲染路径
-		const layers = this.getLayers();
-		let hasDirty = false;
+		const layers = [...this.getLayers(), ...this.renderLayersRegistry.map((x) => x.layer)];
 		let mergedDirty: BoundBox | null = null;
 		for (const layer of layers) {
 			const dirty = layer.dirtyRect;
 			if (dirty !== null) {
-				hasDirty = true;
-				mergedDirty =
-					mergedDirty !== null
-						? {
-								top: Math.min(mergedDirty.top, dirty.top),
-								left: Math.min(mergedDirty.left, dirty.left),
-								bottom: Math.max(mergedDirty.bottom, dirty.bottom),
-								right: Math.max(mergedDirty.right, dirty.right),
-							}
-						: { ...dirty };
+				mergedDirty = mergedDirty
+					? {
+							top: Math.min(mergedDirty.top, dirty.top),
+							left: Math.min(mergedDirty.left, dirty.left),
+							bottom: Math.max(mergedDirty.bottom, dirty.bottom),
+							right: Math.max(mergedDirty.right, dirty.right),
+						}
+					: { ...dirty };
 			}
 		}
-		if (hasDirty && mergedDirty !== null) {
-			// 变换非单位矩阵时回退到全量渲染，避免脏区坐标与变换矩阵不一致
-			const transform = this.viewCtx.getTransform();
-			const isIdentity =
-				transform.a === 1 &&
-				transform.b === 0 &&
-				transform.c === 0 &&
-				transform.d === 1 &&
-				transform.e === 0 &&
-				transform.f === 0;
-			if (!isIdentity) {
-				// 非单位变换：清除脏区标记后走全量渲染路径
-				for (const layer of layers) {
-					if (layer.dirtyRect !== null) {
-						layer.clearDirty();
-					}
+		if (mergedDirty) {
+			this.renderRange(mergedDirty);
+			for (const layer of layers) {
+				if (layer.dirtyRect !== null) {
+					layer.clearDirty();
 				}
-			} else {
-				this.renderRange(mergedDirty);
-				for (const layer of layers) {
-					if (layer.dirtyRect !== null) {
-						layer.clearDirty();
-					}
-				}
-				return;
 			}
+			return;
 		}
+		console.log("none");
+		// 无脏区
+		return;
+	}
 
-		const renderCtx: RenderContext = {
-			viewCtx: this.viewCtx,
-			timestamp: Date.now(),
-		};
-
-		const plugins = this.getPlugins();
-		// 渲染前钩子
-		for (const plugin of plugins) {
-			plugin.onRenderBefore?.(renderCtx);
-		}
-
+	renderAll() {
+		const layers = this.getLayers();
 		this.renderBackground();
-		this.clearView();
-
+		this.viewCtx.fillStyle = this.getBackgroundColor();
+		this.viewCtx.fillRect(0, 0, this.canvasElement.width, this.canvasElement.height);
 		// 绘制所有可见图层
 		for (const layer of layers) {
 			if (layer.visible) {
 				this.viewCtx.drawImage(layer.vCtx.canvas, 0, 0);
 			}
 		}
-
-		// 渲染所有已注册的插件渲染层（已按 zIndex 排序）
+		// 绘制所有已注册的插件渲染层
 		for (const entry of this.renderLayersRegistry) {
 			this.viewCtx.drawImage(entry.layer.vCtx.canvas, 0, 0);
-		}
-
-		// 渲染后钩子
-		for (const plugin of plugins) {
-			plugin.onRenderAfter?.(renderCtx);
 		}
 	}
 
@@ -122,27 +91,32 @@ export class RenderPipeline {
 		const h = rect.bottom - rect.top;
 		if (w <= 0 || h <= 0) return;
 
-		const renderCtx: RenderContext = {
-			viewCtx: this.viewCtx,
-			timestamp: Date.now(),
-		};
-
-		const plugins = this.getPlugins();
-		for (const plugin of plugins) {
-			plugin.onRenderBefore?.(renderCtx);
-		}
-
 		const layers = this.getLayers();
 
-		// 局部渲染：clip 到脏区矩形，填充背景后绘制所有可见图层
 		this.viewCtx.save();
 		this.viewCtx.beginPath();
 		this.viewCtx.rect(rect.left, rect.top, w, h);
 		this.viewCtx.clip();
 
-		// 在裁剪区域内填充背景色（替代全量 renderBackground）
-		this.viewCtx.fillStyle = this.getBackgroundColor();
-		this.viewCtx.fillRect(rect.left, rect.top, w, h);
+		const canvasRect: BoundBox = {
+			left: 0,
+			top: 0,
+			right: this.canvasElement.width,
+			bottom: this.canvasElement.height,
+		};
+		const canvasIntersect = BoundBox.intersect(rect, canvasRect);
+		if (BoundBox.isValid(canvasIntersect)) {
+			this.viewCtx.fillStyle = this.getBackgroundColor();
+			this.viewCtx.fillRect(
+				canvasIntersect.left,
+				canvasIntersect.top,
+				canvasIntersect.right - canvasIntersect.left,
+				canvasIntersect.bottom - canvasIntersect.top,
+			);
+		} else {
+			this.viewCtx.fillStyle = this.getBoardColor();
+			this.viewCtx.fillRect(rect.left, rect.top, w, h);
+		}
 
 		for (const layer of layers) {
 			if (layer.visible) {
@@ -153,10 +127,6 @@ export class RenderPipeline {
 			this.viewCtx.drawImage(entry.layer.vCtx.canvas, rect.left, rect.top, w, h, rect.left, rect.top, w, h);
 		}
 		this.viewCtx.restore();
-
-		for (const plugin of plugins) {
-			plugin.onRenderAfter?.(renderCtx);
-		}
 	}
 
 	/** 用指定变换矩阵绘制单个图层到 viewCtx */

@@ -41,6 +41,9 @@ export { Layer } from "./Paint/Layer";
 // --- 描边系统 ---
 export { Line } from "./Paint/Line";
 
+// --- 鼠标轨迹 ---
+export { MouseTrajectory } from "./Paint/MouseTrajectory";
+
 // --- 笔刷系统 ---
 export { Pen, BaseBrush, type BrushStyle, type BrushTypes } from "./Paint/Brushes";
 
@@ -53,11 +56,16 @@ export { KeyListener } from "./Paint/Input/key-listener";
 export { PointerListener } from "./Paint/Input/pointer-listener";
 
 // --- 插件基类与内置插件 ---
-export { PaintPlugin, type BrushCommitData, type RenderContext } from "./Paint/DefaultPlugins";
+export { PaintPlugin, type BrushCommitData } from "./Paint/DefaultPlugins";
 export { Eraser } from "./Paint/DefaultPlugins/Eraser";
 export { Lasso } from "./Paint/DefaultPlugins/Lasso";
 
+// --- 选择器 ---
+export { BaseSelector } from "./Paint/Selectors";
+export { LassoSelector } from "./Paint/DefaultPlugins/Lasso/LassoSelector";
+
 // --- 工具函数 ---
-export { Mix, Clamp, CircleClamp, easeOutDecay, createMirror, deepClone } from "./Paint/Utils";
+export { Mix, Clamp, CircleClamp, easeOutDecay, createMirror, deepClone, extendToBoundBox } from "./Paint/Utils";
 export { createCanvasContext } from "./Paint/Utils/canvas";
+export { screenToCanvas, canvasToScreen } from "./Paint/Utils/canvas";
 export { genBezierPoints } from "./Paint/Utils/line";
