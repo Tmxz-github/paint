@@ -36,10 +36,8 @@ export class RenderPipeline {
 		this.viewCtx.clearRect(0, 0, this.canvasElement.width, this.canvasElement.height);
 	}
 
-	/** 完整渲染管线：渲染前钩子 → 背景 → 清空 → 图层 → 插件层 → 渲染后钩子 */
 	renderLayers(): void {
-		// 【脏区路径检测】检测所有图层的 dirtyRect，若存在脏区则走局部渲染路径
-		const layers = [...this.getLayers(), ...this.renderLayersRegistry.map((x) => x.layer)];
+		const layers = [ ...this.renderLayersRegistry.map((x) => x.layer), ...this.getLayers()];
 		let mergedDirty: BoundBox | null = null;
 		for (const layer of layers) {
 			const dirty = layer.dirtyRect;
@@ -68,7 +66,7 @@ export class RenderPipeline {
 	}
 
 	renderAll() {
-		const layers = this.getLayers();
+		const layers = [ ...this.renderLayersRegistry.map((x) => x.layer), ...this.getLayers()];
 		this.renderBackground();
 		this.viewCtx.fillStyle = this.getBackgroundColor();
 		this.viewCtx.fillRect(0, 0, this.canvasElement.width, this.canvasElement.height);
@@ -78,52 +76,28 @@ export class RenderPipeline {
 				this.viewCtx.drawImage(layer.vCtx.canvas, 0, 0);
 			}
 		}
-		// 绘制所有已注册的插件渲染层
-		for (const entry of this.renderLayersRegistry) {
-			this.viewCtx.drawImage(entry.layer.vCtx.canvas, 0, 0);
-		}
 	}
 
 	/** 渲染指定范围：只重绘指定矩形区域内的内容 */
 	renderRange(rect: BoundBox): void {
+		this.viewCtx.save();
+		rect = {
+			top: Math.floor(rect.top),
+			bottom: Math.ceil(rect.bottom),
+			left: Math.floor(rect.left),
+			right: Math.ceil(rect.right),
+		};
 		const w = rect.right - rect.left;
 		const h = rect.bottom - rect.top;
 		if (w <= 0 || h <= 0) return;
 
-		const layers = this.getLayers();
+		this.viewCtx.clearRect(rect.left, rect.top, w, h);
 
-		this.viewCtx.save();
-		this.viewCtx.beginPath();
-		this.viewCtx.rect(rect.left, rect.top, w, h);
-		this.viewCtx.clip();
-
-		const canvasRect: BoundBox = {
-			left: 0,
-			top: 0,
-			right: this.canvasElement.width,
-			bottom: this.canvasElement.height,
-		};
-		const canvasIntersect = BoundBox.intersect(rect, canvasRect);
-		if (BoundBox.isValid(canvasIntersect)) {
-			this.viewCtx.fillStyle = this.getBackgroundColor();
-			this.viewCtx.fillRect(
-				canvasIntersect.left,
-				canvasIntersect.top,
-				canvasIntersect.right - canvasIntersect.left,
-				canvasIntersect.bottom - canvasIntersect.top,
-			);
-		} else {
-			this.viewCtx.fillStyle = this.getBoardColor();
-			this.viewCtx.fillRect(rect.left, rect.top, w, h);
-		}
-
+		const layers = [ ...this.renderLayersRegistry.map((x) => x.layer), ...this.getLayers()];
 		for (const layer of layers) {
 			if (layer.visible) {
 				this.viewCtx.drawImage(layer.vCtx.canvas, rect.left, rect.top, w, h, rect.left, rect.top, w, h);
 			}
-		}
-		for (const entry of this.renderLayersRegistry) {
-			this.viewCtx.drawImage(entry.layer.vCtx.canvas, rect.left, rect.top, w, h, rect.left, rect.top, w, h);
 		}
 		this.viewCtx.restore();
 	}

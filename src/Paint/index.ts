@@ -74,6 +74,7 @@ export class Paint {
 	public backgroundColor: string = "#f0f0f0";
 	/** 画布背景色 */
 	public canvasBackgroundColor: string = "#66ccff";
+	public backgroundLayer: Layer;
 	public state: PaintState = "DRAW";
 	private drawMode: DrawMode = new DrawMode(this);
 	private _mode!: PaintMode;
@@ -146,6 +147,19 @@ export class Paint {
 			},
 			this.mouseTrajectory,
 		);
+		this.backgroundLayer = new Layer({
+			width: this.width,
+			height: this.height,
+		});
+		this.backgroundLayer.vCtx.fillStyle = this.canvasBackgroundColor;
+		this.backgroundLayer.vCtx.fillRect(0, 0, this.width, this.height);
+		const backgroundEntry: RenderLayerEntry = {
+			id: "background-layer",
+			zIndex: -1,
+			layer: this.backgroundLayer,
+			pluginId: "__background__",
+		};
+		this.renderPipeline.registerRenderLayer(backgroundEntry);
 		this.cursorRenderer = new CursorRenderer(this.viewCtx, this.canvasElement);
 		this.cursorLayer = this.cursorRenderer.cursorLayer;
 		// 将光标层注册为插件层（最高 zIndex 保证绘制在最上层）
