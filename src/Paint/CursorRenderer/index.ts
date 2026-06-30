@@ -89,9 +89,6 @@ export class CursorRenderer {
 			const newBox = this.cursor.getRenderBBox(this.canvasPos);
 			dirtyBox = BoundBox.merge(oldBox, newBox);
 		}
-		console.log(dirtyBox);
-		// const res = BoundBox.shrink(BoundBox.inflate(dirtyBox, 8), this.canvasElement.width, this.canvasElement.height);
-		// 标记 cursorLayer 脏区 → renderLayers 会合成该区域，从 viewCtx 上擦除旧光标
 
 		// 直接在 viewCtx 上绘制新光标（路径渲染，随 transform 平滑缩放）
 		if (!this._grabReady && !this._grabbing) {

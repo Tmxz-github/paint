@@ -11,7 +11,7 @@ export class Cursor {
 	}
 	constructor(
 		private _ridus: number = 2,
-		public cursorLineWith: number = 0.1,
+		public cursorLineWith: number = 0.05,
 	) {}
 
 	/**

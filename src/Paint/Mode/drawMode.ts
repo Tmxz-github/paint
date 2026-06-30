@@ -14,14 +14,18 @@ export class DrawMode implements PaintMode {
 		this.ctx.state = "DRAW";
 		this.ctx.pointerListener.on("MOVE", this.onPointerMove, this);
 		this.ctx.pointerListener.on("UP", this.onPointerUp, this);
+		this.ctx.pointerListener.on("DOWN", this.onPointerDowm, this);
 	}
 	onLeaveMode(_data: any): void {
 		this.ctx.pointerListener.off("MOVE", this.onPointerMove);
 		this.ctx.pointerListener.off("UP", this.onPointerUp);
+		this.ctx.pointerListener.off("DOWN", this.onPointerDowm);
+	}
+	private onPointerDowm(_ev: MyPointerEvent) {
+		this.drawing = true;
 	}
 	onPointerMove(_ev: MyPointerEvent) {
-		if (this.ctx.canDraw && this.ctx.state === "DRAW") {
-			this.drawing = true;
+		if (this.ctx.canDraw && this.ctx.state === "DRAW" && this.drawing) {
 			this.lineBBox.left = Math.floor(
 				Math.min(this.lineBBox.left, this.ctx.cursorRenderer.canvasPos.x - this.ctx.brushManager.brush.size),
 			);
@@ -54,7 +58,6 @@ export class DrawMode implements PaintMode {
 			this.ctx.plugins.forEach((p) => p.onBrushCommit?.(commitData));
 
 			this.ctx.layerManager.currentLayer.preCtx.putImageData(this.ctx.getImageData(), 0, 0);
-			/** 每一笔绘制完后重置包围盒 */
 			this.lineBBox = BoundBox.Empty;
 		}
 		this.drawing = false;

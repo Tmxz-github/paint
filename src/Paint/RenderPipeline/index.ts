@@ -22,7 +22,7 @@ export class RenderPipeline {
 		private readonly getPlugins: () => PaintPlugin[],
 	) {}
 
-	/** 渲染画板背景（画板底色，在画布“之后”的灰色层） */
+	/** 渲染画板背景 */
 	renderBackground(): void {
 		this.viewCtx.save();
 		this.viewCtx.setTransform(1, 0, 0, 1, 0, 0);
@@ -63,7 +63,6 @@ export class RenderPipeline {
 			}
 			return;
 		}
-		console.log("none");
 		// 无脏区
 		return;
 	}

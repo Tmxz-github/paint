@@ -97,7 +97,11 @@ export class Line {
 	}
 
 	public endLine() {
-		if (this.originPoints.length < 2) return;
+		if (this.originPoints.length < 2) {
+			this.originPoints = [];
+			this.bezierPoints = [];
+			return;
+		}
 		const [lastPoint1, lastPoint2] = [
 			this.originPoints[this.originPoints.length - 2],
 			this.originPoints[this.originPoints.length - 1],
