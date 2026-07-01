@@ -5,10 +5,9 @@ import { Line } from "./Line";
 import { BrushManager } from "./BrushManager";
 import { CursorRenderer } from "./CursorRenderer";
 import { PointerListener } from "./Input/pointer-listener";
-import type { BaseBrush, BrushStyle, BrushTypes } from "./Brushes";
+import { Pen, type BaseBrush, type BrushStyle, type BrushTypes } from "./Brushes";
 import { createMirror } from "./Utils";
 import { CanvasHistory } from "./CanvasHistory";
-import { createCanvasContext } from "./Utils/canvas";
 import { BaseMode, type PaintMode } from "./Mode";
 import { DrawMode } from "./Mode/drawMode";
 import type { PaintPlugin } from "./DefaultPlugins";
@@ -60,7 +59,7 @@ export class Paint {
 	public readonly height: number = 512;
 
 	public get canDraw() {
-		return this.canvasReady && this.layerManager.currentLayer.visible && !this.cursorRenderer.grabbing;
+		return this.canvasReady && this.layerManager.currentLayer.visible && !this.transform.grabbing;
 	}
 	public plugins: PaintPlugin[] = [];
 	public containerEl: HTMLElement;
@@ -118,7 +117,7 @@ export class Paint {
 
 		this.clipedArea = ClipedArea.Empty;
 
-		this.transform = new TransformManager(this.canvasElement.width, this.canvasElement.height);
+		this.transform = new TransformManager(this.canvasElement.width, this.canvasElement.height, this.canvasElement);
 		this.pointerListener = new PointerListener(this.containerEl);
 		this.keyListener = new KeyListener(this.containerEl);
 		this.layerManager = new LayerManager(this.canvasElement.width, this.canvasElement.height);
@@ -127,7 +126,7 @@ export class Paint {
 			"currentLayer",
 			"vCtx",
 		]);
-		this.brushManager = new BrushManager(this.mirrorCtx);
+		this.brushManager = new BrushManager(new Pen(this.mirrorCtx, "PEN"));
 		this.renderPipeline = new RenderPipeline(
 			this.viewCtx,
 			this.canvasElement,
@@ -160,9 +159,11 @@ export class Paint {
 			pluginId: "__background__",
 		};
 		this.renderPipeline.registerRenderLayer(backgroundEntry);
-		this.cursorRenderer = new CursorRenderer(this.viewCtx, this.canvasElement);
-		this.cursorLayer = this.cursorRenderer.cursorLayer;
-		// 将光标层注册为插件层（最高 zIndex 保证绘制在最上层）
+		this.cursorLayer = new Layer({
+			width: this.width,
+			height: this.height,
+		});
+		this.cursorRenderer = new CursorRenderer(this.viewCtx, this.cursorLayer, this.transform);
 		const cursorEntry: RenderLayerEntry = {
 			id: "cursor-layer",
 			zIndex: 10000,
@@ -181,7 +182,6 @@ export class Paint {
 			plugin.onInstalled?.();
 		}
 
-		// 初始渲染：填充画布背景并绘制所有图层
 		this.renderPipeline.renderAll();
 	}
 
@@ -190,16 +190,6 @@ export class Paint {
 		for (const plugin of this.plugins) {
 			plugin.acceptEvent(name, data);
 		}
-	}
-
-	/** 获取 canvas 的 imageData */
-	public getImageData(sx?: number, sy?: number, sw?: number, sh?: number, settings?: ImageDataSettings) {
-		if (sx === undefined) sx = 0;
-		if (sy === undefined) sy = 0;
-		if (sw === undefined) sw = this.canvasElement.width;
-		if (sh === undefined) sh = this.canvasElement.height;
-		if (settings === undefined) settings = {};
-		return this.mirrorCtx.getImageData(sx, sy, sw, sh, settings);
 	}
 
 	public switchBrush(type: BrushTypes) {
@@ -211,9 +201,6 @@ export class Paint {
 		}
 		// 笔刷切换后清理脏区，避免旧脏区影响
 		this.layerManager.currentLayer.clearDirty();
-		if (type !== "LASSO") {
-			this.brushManager.brush = this.brushManager.getBrush(type);
-		}
 	}
 
 	public setBrushStyle(options: Partial<BrushStyle>) {
@@ -231,7 +218,6 @@ export class Paint {
 
 	public clearCurLayer() {
 		this.layerManager.clearCurrentLayer();
-		// 标记全画布为脏区，确保 renderLayers 正确更新视窗
 		this.layerManager.currentLayer.markDirty({
 			top: 0,
 			left: 0,
@@ -245,7 +231,6 @@ export class Paint {
 		const layer = this.layerManager.getLayer(i);
 		if (!layer) return;
 		layer.vCtx.clearRect(0, 0, layer.vCtx.canvas.width, layer.vCtx.canvas.height);
-		// 标记全画布为脏区
 		layer.markDirty({
 			top: 0,
 			left: 0,
@@ -262,7 +247,6 @@ export class Paint {
 
 	public addNewLayer() {
 		const newLayer = this.layerManager.addNewLayer(this.canvasElement.width, this.canvasElement.height);
-		// 图层变更钩子
 		for (const plugin of this.plugins) {
 			plugin.onLayerChange?.(newLayer);
 		}
@@ -291,8 +275,8 @@ export class Paint {
 	/** @param pos 光标在 canvas 元素上的坐标 */
 	public grabTo(pos: Vec2D) {
 		this.renderLayers();
-		this.transform.pan(pos, this.cursorRenderer.grabStartPos);
-		this.cursorRenderer.grabStartPos = pos;
+		this.transform.pan(pos);
+		this.transform.grabStartPos = pos;
 		this.transform.applyTo(this.viewCtx);
 		this.renderPipeline.renderAll();
 		if (this.cursorRenderer.cursorIn) {
@@ -300,6 +284,10 @@ export class Paint {
 		}
 	}
 
+	/**
+	 * 
+	 * @param degree 度数
+	 */
 	public rotateTo(degree: number) {
 		this.transform.rotateTo(degree);
 		this.transform.applyTo(this.viewCtx);

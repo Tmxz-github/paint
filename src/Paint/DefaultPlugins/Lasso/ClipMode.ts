@@ -14,6 +14,8 @@ export class ClipMode extends PaintMode {
 	private readonly clipedArea: ClipedArea = ClipedArea.Empty;
 	/** 已经确认修改的剪切内容 */
 	private clipped: boolean = false;
+	/** 剪切内容拖动开始坐标，每次拖动时都会变化 */
+	private clipGrabStartPos: Vec2D = Vec2D.Zero;
 
 	constructor(
 		private ctx: Paint,
@@ -25,6 +27,7 @@ export class ClipMode extends PaintMode {
 	}
 
 	onEnterMode(_data: any): void {
+		if (this.ctx.state === "CLIP") return;
 		this.ctx.state = "CLIP";
 		this.clipped = false;
 		this.ctx.pointerListener.on("MOVE", this.onPointerMove, this);
@@ -43,22 +46,14 @@ export class ClipMode extends PaintMode {
 
 	private onPointerMove({ pos }: MyPointerEvent) {
 		if (this.ctx.canDraw && this.ctx.state === "CLIP") {
-			// 保存旧的包围盒用于脏区合并
-			const oldBox = { ...this.selector.boundBox };
+			const oldBox = this.selector.boundBox;
 
 			this.selector.drawSelection(this.ctx.cursorRenderer.canvasPos);
 
-			// 合并新旧脏区：旧位置（被清除的矩形）+ 新位置（新绘制的矩形）
-			// 膨胀 2px 覆盖抗锯齿边缘
 			const mergedBox = BoundBox.inflate(
 				BoundBox.merge(
-					{ top: oldBox.top, left: oldBox.left, bottom: oldBox.bottom, right: oldBox.right },
-					{
-						top: this.selector.boundBox.top,
-						left: this.selector.boundBox.left,
-						bottom: this.selector.boundBox.bottom,
-						right: this.selector.boundBox.right,
-					},
+					oldBox,
+					this.selector.boundBox
 				),
 				2,
 			);
@@ -86,10 +81,10 @@ export class ClipMode extends PaintMode {
 			this.ctx.layerManager.currentLayer.markDirty(currentBox);
 		}
 
-		// 计算拖拽偏移量：需反算 viewCtx 上的变换（旋转/缩放）得到正确的画布坐标偏移
+		// 计算拖拽偏移量
 		const t = this.ctx.viewCtx.getTransform();
 		const inverse = t.inverse();
-		const rawOffset = Vec2D.Sub(pos, this.ctx.cursorRenderer.clipGrabStartPos);
+		const rawOffset = Vec2D.Sub(pos, this.clipGrabStartPos);
 		// 通过逆变换将屏幕像素偏移转换为画布坐标偏移
 		const offset: Vec2D = {
 			x: inverse.a * rawOffset.x + inverse.c * rawOffset.y,
@@ -97,7 +92,7 @@ export class ClipMode extends PaintMode {
 		};
 
 		// 保存偏移前的包围盒用于脏区合并
-		const oldBox = { ...currentBox };
+		const oldBox = currentBox;
 
 		this.selector.startPoint = Vec2D.Add(this.selector.startPoint, offset);
 
@@ -111,11 +106,9 @@ export class ClipMode extends PaintMode {
 		// 将剪切内容放置到新的位置
 		this.grabContent(this.selector.boundBox);
 
-		// lassoRectLayer 的脏区：drawSelection 清空了旧 rect 区域并绘制了新 rect
-		// 膨胀 2px 覆盖抗锯齿边缘
 		const mergedRectBox = BoundBox.inflate(
 			BoundBox.merge(
-				{ top: oldBox.top, left: oldBox.left, bottom: oldBox.bottom, right: oldBox.right },
+				oldBox,
 				{
 					top: this.selector.boundBox.top,
 					left: this.selector.boundBox.left,
@@ -127,8 +120,6 @@ export class ClipMode extends PaintMode {
 		);
 		this.lassoRectLayer.markDirty(mergedRectBox);
 
-		// lassoLayer 的脏区：旧位置已清除 + 新位置已放置内容
-		// 膨胀 2px 覆盖 putImageData / clearRect 的亚像素边缘
 		const mergedContentBox = BoundBox.inflate(
 			BoundBox.merge(
 				{ top: oldBox.top, left: oldBox.left, bottom: oldBox.bottom, right: oldBox.right },
@@ -143,7 +134,7 @@ export class ClipMode extends PaintMode {
 		);
 		this.lassoLayer.markDirty(mergedContentBox);
 
-		this.ctx.cursorRenderer.clipGrabStartPos = pos;
+		this.clipGrabStartPos = pos;
 		this.clipStarted = false;
 
 		// 立即触发渲染，消除一帧延迟导致的残影
@@ -155,7 +146,7 @@ export class ClipMode extends PaintMode {
 			this.selector.startPoint = deepClone(this.ctx.cursorRenderer.canvasPos);
 		}
 		if (this.ctx.state === "CLIPPING") {
-			this.ctx.cursorRenderer.clipGrabStartPos = pos;
+			this.clipGrabStartPos = pos;
 		}
 	}
 
@@ -225,7 +216,6 @@ export class ClipMode extends PaintMode {
 				this.ctx.layerManager.currentLayer,
 				this.selector.boundBox,
 			);
-			this.ctx.layerManager.currentLayer.preCtx.putImageData(this.ctx.getImageData(), 0, 0);
 			this.clipped = true;
 			this.ctx.state = "CLIP";
 		}

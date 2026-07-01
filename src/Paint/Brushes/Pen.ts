@@ -3,8 +3,8 @@ import type { Vec2D } from "../Types";
 import { BaseBrush } from "./BaseBrush";
 
 export class Pen extends BaseBrush {
-	constructor(brushCtx: CanvasRenderingContext2D, size: number, thickness: number, color: string) {
-		super(brushCtx, size, thickness, color);
+	constructor(brushCtx: CanvasRenderingContext2D, name: string, size: number = 2, thickness: number = 2, color: string = "black") {
+		super(brushCtx, name, size, thickness, color);
 	}
 
 	protected onColorChange(value: string): void {

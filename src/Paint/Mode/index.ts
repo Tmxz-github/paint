@@ -31,11 +31,11 @@ export class BaseMode extends PaintMode {
 		});
 
 		this.ctx.keyListener.on(" :down", () => {
-			this.ctx.cursorRenderer.grabReady = true;
+			this.ctx.transform.grabReady = true;
 		});
 		this.ctx.keyListener.on(" :up", () => {
-			this.ctx.cursorRenderer.grabReady = false;
-			this.ctx.cursorRenderer.grabbing = false;
+			this.ctx.transform.grabReady = false;
+			this.ctx.transform.grabbing = false;
 		});
 		this.ctx.keyListener.control().on("z:up", () => {
 			this.ctx.canvasHistory.undo();
@@ -60,21 +60,21 @@ export class BaseMode extends PaintMode {
 		this.ctx.renderLayers();
 		this.ctx.cursorRenderer.render(pos);
 
-		if (this.ctx.cursorRenderer.grabbing) {
+		if (this.ctx.transform.grabbing) {
 			this.ctx.grabTo(this.ctx.cursorRenderer.pointerPos);
 		}
 	}
 	private onPointerDown({ pos }: MyPointerEvent) {
 		this.ctx.canvasReady = true;
-		if (this.ctx.cursorRenderer.grabReady) {
-			this.ctx.cursorRenderer.grabbing = true;
+		if (this.ctx.transform.grabReady) {
+			this.ctx.transform.grabbing = true;
 		}
-		this.ctx.cursorRenderer.grabStartPos = pos;
+		this.ctx.transform.grabStartPos = pos;
 	}
 	private onPointerUp({ pos }: MyPointerEvent) {
 		this.ctx.cursorRenderer.pointerPos = pos;
 		this.ctx.canvasReady = false;
-		this.ctx.cursorRenderer.grabbing = false;
+		this.ctx.transform.grabbing = false;
 		this.ctx.renderLayers();
 	}
 	private onPointerLeave({ pos }: MyPointerEvent) {

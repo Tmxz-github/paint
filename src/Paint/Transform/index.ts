@@ -18,11 +18,12 @@ export class TransformManager {
 	rotation: number = 0;
 	/** 画布偏移量 */
 	offset: Vec2D = Vec2D.Zero;
-
 	/** 最小缩放 */
 	minScale: number = 0.1;
 	/** 最大缩放 */
 	maxScale: number = 20;
+	/** 拖动开始坐标（屏幕坐标） */
+	grabStartPos: Vec2D = Vec2D.Zero;
 
 	/** 键盘缩放等级（大步进 ×1.5） */
 	readonly keyboardZoomLevels: number[];
@@ -33,6 +34,41 @@ export class TransformManager {
 	private preScale: number = 1;
 	private readonly _canvasWidth: number;
 	private readonly _canvasHeight: number;
+	private readonly _canvasElement: HTMLCanvasElement;
+	/** 画布准备拖动 */
+	private _grabReady: boolean = false;
+	/** 画布拖动中 */
+	private _grabbing: boolean = false;
+
+	get grabReady(): boolean {
+		return this._grabReady;
+	}
+	set grabReady(value: boolean) {
+		if (value) {
+			if (!this._grabbing) {
+				this._canvasElement.style.cursor = "grab";
+			}
+		} else {
+			this._canvasElement.style.cursor = "none";
+		}
+		this._grabReady = value;
+	}
+
+	get grabbing(): boolean {
+		return this._grabbing;
+	}
+	set grabbing(value: boolean) {
+		if (value) {
+			this._canvasElement.style.cursor = "grabbing";
+		} else {
+			if (this._grabReady) {
+				this._canvasElement.style.cursor = "grab";
+			} else {
+				this._canvasElement.style.cursor = "crosshair";
+			}
+		}
+		this._grabbing = value;
+	}
 
 	/** 画布宽度（只读） */
 	get width(): number {
@@ -43,11 +79,10 @@ export class TransformManager {
 		return this._canvasHeight;
 	}
 
-	constructor(canvasWidth: number, canvasHeight: number) {
+	constructor(canvasWidth: number, canvasHeight: number, canvasElement: HTMLCanvasElement) {
 		this._canvasWidth = canvasWidth;
 		this._canvasHeight = canvasHeight;
-		this._canvasWidth = canvasWidth;
-		this._canvasHeight = canvasHeight;
+		this._canvasElement = canvasElement;
 		this.keyboardZoomLevels = this.buildZoomLevels(1.5);
 		this.wheelZoomLevels = this.buildZoomLevels(1.1);
 	}
@@ -216,11 +251,10 @@ export class TransformManager {
 	/**
 	 * 平移（考虑旋转补偿）
 	 * @param screenPos 当前屏幕坐标
-	 * @param grabStartPos 拖动开始坐标
 	 */
-	pan(screenPos: Vec2D, grabStartPos: Vec2D): void {
-		const offsetX = screenPos.x - grabStartPos.x;
-		const offsetY = screenPos.y - grabStartPos.y;
+	pan(screenPos: Vec2D): void {
+		const offsetX = screenPos.x - this.grabStartPos.x;
+		const offsetY = screenPos.y - this.grabStartPos.y;
 
 		const rad = (this.rotation * Math.PI) / 180;
 		const cos = Math.cos(rad);

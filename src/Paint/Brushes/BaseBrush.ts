@@ -2,10 +2,13 @@ import type { Vec2D } from "../Types";
 import { Clamp } from "../Utils";
 
 /**
- * 笔刷抽象基类，提供 size/thickness/color 的共享 getter/setter 实现。
- * 子类只需实现 drawDot 和差异化配置。
+ * 笔刷基类
+ * 
+ * 笔刷能根据鼠标轨迹绘制点
  */
 export abstract class BaseBrush {
+	public readonly name: string;
+
 	protected readonly brushCtx: CanvasRenderingContext2D;
 
 	protected _size: number;
@@ -15,11 +18,12 @@ export abstract class BaseBrush {
 	protected readonly sizeMin: number = 0.1;
 	protected readonly sizeMax: number = 128;
 
-	constructor(brushCtx: CanvasRenderingContext2D, size: number, thickness: number, color: string = "transparent") {
+	constructor(brushCtx: CanvasRenderingContext2D, name: string, size: number, thickness: number, color: string = "transparent") {
 		this.brushCtx = brushCtx;
 		this._size = Clamp(size, this.sizeMin, this.sizeMax);
 		this._thickness = Clamp(thickness, 0.1, 1);
 		this._color = color;
+		this.name = name;
 	}
 
 	get size(): number {
@@ -36,7 +40,6 @@ export abstract class BaseBrush {
 		return this._thickness;
 	}
 
-	/** 0 - 1 */
 	set thickness(value: number) {
 		value = Clamp(value, 0.1, 1);
 		this._thickness = value;
@@ -51,7 +54,6 @@ export abstract class BaseBrush {
 		this.onColorChange(value);
 	}
 
-	/** 颜色变更钩子，子类可覆盖以同步更新 canvas 上下文 */
 	protected onColorChange(_value: string): void {}
 
 	abstract drawDot(point: Vec2D): void;

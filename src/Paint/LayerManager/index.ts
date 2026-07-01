@@ -4,7 +4,6 @@ import { Layer } from "../Layer";
  * LayerManager - 图层数据管理
  *
  * 负责图层的增删改查、可见性管理、内容清空。
- * 不直接参与渲染，由 Paint 类在委托方法中调用 RenderPipeline。
  */
 export class LayerManager {
 	readonly layers: Layer[] = [];

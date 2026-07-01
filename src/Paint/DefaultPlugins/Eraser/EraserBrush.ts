@@ -4,8 +4,8 @@ import { BaseBrush } from "../../Brushes/BaseBrush";
 export class EraserBrush extends BaseBrush {
 	protected readonly sizeMin = 1;
 
-	constructor(brushCtx: CanvasRenderingContext2D, size: number, thickness: number = 1) {
-		super(brushCtx, size, thickness, "transparent");
+	constructor(brushCtx: CanvasRenderingContext2D, name: string, size: number, thickness: number = 1) {
+		super(brushCtx, name, size, thickness, "transparent");
 	}
 
 	public drawDot(point: Vec2D) {
@@ -15,7 +15,6 @@ export class EraserBrush extends BaseBrush {
 		this.brushCtx.beginPath();
 		this.brushCtx.arc(point.x, point.y, this._size, 0, Math.PI * 2);
 		this.brushCtx.fill();
-
 		this.brushCtx.restore();
 	}
 }

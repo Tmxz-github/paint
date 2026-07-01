@@ -24,7 +24,7 @@ export class Layer {
 		this.preCtx.putImageData(imageData, 0, 0);
 	}
 
-	/** 标记脏区域：如果已有脏区域则合并，否则直接赋值 */
+	/** 标记脏区域，如果已有脏区域则合并，否则直接赋值 */
 	public markDirty(rect: BoundBox): void {
 		if (this.dirtyRect !== null) {
 			this.dirtyRect = BoundBox.merge(this.dirtyRect, rect);

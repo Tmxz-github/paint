@@ -9,7 +9,7 @@ export class Eraser extends PaintPlugin {
 	}
 
 	apply(instance: Paint) {
-		const eraser = new EraserBrush(instance.mirrorCtx, 2, 0.5);
+		const eraser = new EraserBrush(instance.mirrorCtx, "EREASER", 2, 0.5);
 		instance.brushManager.brushes.set("ERASER", eraser);
 	}
 }

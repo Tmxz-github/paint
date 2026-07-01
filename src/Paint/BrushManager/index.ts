@@ -1,29 +1,35 @@
-import { Pen } from "../Brushes";
-import type { BaseBrush, BrushStyle, BrushTypes } from "../Brushes";
+import type { BaseBrush, BrushStyle } from "../Brushes";
 
 /**
  * BrushManager - 笔刷管理器
  *
  * 持有笔刷注册表和当前笔刷引用，提供笔刷的增删查改操作。
- * 不依赖 Paint 类，通过构造函数注入最小依赖。
  */
 export class BrushManager {
 	/** 笔刷注册表 */
-	public readonly brushes: Map<BrushTypes, BaseBrush> = new Map();
+	public readonly brushes: Map<string, BaseBrush> = new Map();
 	/** 当前笔刷 */
-	public brush: BaseBrush;
+	private _brush: BaseBrush;
 
-	constructor(mirrorCtx: CanvasRenderingContext2D) {
-		const pen = new Pen(mirrorCtx, 2, 2, "black");
-		this.brushes.set("PEN", pen);
-		this.brush = pen;
+	public get brush() {
+		return this._brush;
 	}
 
-	/**
-	 * 按类型获取笔刷，不存在时返回默认 PEN
-	 */
-	getBrush(type: BrushTypes): BaseBrush {
-		return this.brushes.get(type) || this.brushes.get("PEN")!;
+	constructor(initBursh: BaseBrush) {
+		this.registerBrush(initBursh);
+		this._brush = initBursh;
+	}
+
+	registerBrush(brush: BaseBrush) {
+		this.brushes.set(brush.name, brush);
+	}
+
+	setBursh(type: string) {
+		if (!this.brushes.has(type)) {
+			console.error("no brush type");
+			return;
+		}
+		this._brush = this.brushes.get(type)!;
 	}
 
 	/**
