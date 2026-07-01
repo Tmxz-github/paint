@@ -23,7 +23,7 @@ export {
 export { TRANSPARENT } from "./Paint/constants";
 
 // --- 渲染层 ---
-export type { RenderLayerEntry } from "./Paint/RenderLayer";
+export type { RenderLayerEntry } from "./Paint/Types";
 
 // --- 变换管理 ---
 export { TransformManager } from "./Paint/Transform";

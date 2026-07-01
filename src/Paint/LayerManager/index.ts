@@ -26,7 +26,7 @@ export class LayerManager {
 		return newLayer;
 	}
 
-	/** 删除指定索引的图层（至少保留 1 层） */
+	/** 删除指定索引的图层 */
 	deleteLayer(index: number): boolean {
 		if (this.layers.length <= 1) return false;
 		if (index < 0 || index >= this.layers.length) return false;
@@ -52,13 +52,6 @@ export class LayerManager {
 		const layer = this.layers[index];
 		if (!layer) return;
 		layer.visible = visible;
-	}
-
-	/** 获取图层信息 */
-	getLayerInfo(index: number): { visible: boolean } | null {
-		const layer = this.layers[index];
-		if (!layer) return null;
-		return { visible: layer.visible };
 	}
 
 	/** 获取指定索引的图层 */

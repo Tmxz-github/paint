@@ -1,5 +1,5 @@
 import { Layer } from "../Layer";
-import type { RenderLayerEntry } from "../RenderLayer";
+import type { RenderLayerEntry } from "../Types";
 import type { PaintPlugin } from "../DefaultPlugins";
 import { BoundBox } from "../Types";
 
@@ -123,7 +123,7 @@ export class RenderPipeline {
 	}
 
 	/** 按插件 ID 批量注销渲染层 */
-	unregisterPluginRenderLayers(pluginId: string): void {
-		this.renderLayersRegistry = this.renderLayersRegistry.filter((e) => e.pluginId !== pluginId);
+	unregisterPluginRenderLayers(id: string): void {
+		this.renderLayersRegistry = this.renderLayersRegistry.filter((e) => e.id !== id);
 	}
 }

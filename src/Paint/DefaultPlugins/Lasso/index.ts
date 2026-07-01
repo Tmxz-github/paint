@@ -41,13 +41,11 @@ export class Lasso extends PaintPlugin {
 			id: "lasso-content",
 			zIndex: 100,
 			layer: this._lassoLayer,
-			pluginId: this.name,
 		});
 		instance.renderPipeline.registerRenderLayer({
 			id: "lasso-rect",
 			zIndex: 200,
 			layer: this._lassoRectLayer,
-			pluginId: this.name,
 		});
 		// LassoSelector 不注册到 brushes map（它不是笔刷）
 		// ClipMode 直接持有 selector 引用

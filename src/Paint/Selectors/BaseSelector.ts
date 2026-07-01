@@ -3,8 +3,7 @@ import type { BoundBox, Vec2D } from "../Types";
 /**
  * BaseSelector - 选择器抽象基类
  *
- * 与 BaseBrush 平级的概念，代表画板上的选区/选择工具。
- * 子类需要实现绘制选区区域的方法。
+ * 选择一个区域
  */
 export abstract class BaseSelector {
 	protected readonly selectorCtx: CanvasRenderingContext2D;

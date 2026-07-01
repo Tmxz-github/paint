@@ -19,16 +19,12 @@ export class Line {
 	public pointsLine: PointsLine;
 
 	constructor(
-		private pathCtx: CanvasRenderingContext2D,
 		private brush: BaseBrush,
 		onDirty?: (rect: BoundBox) => void,
 		mouseTrajectory?: MouseTrajectory,
 	) {
 		this._onDirty = onDirty;
 		this._mouseTrajectory = mouseTrajectory;
-		if (!brush) {
-			this.brush = new Pen(this.pathCtx, 2, 2, "black");
-		}
 		this.pointsLine = new PointsLine();
 	}
 

@@ -1,6 +1,7 @@
 import { Vec2D } from "./vec2d";
 import { BoundBox } from "./boundbox";
 import { ClipedArea } from "./clipedarea";
+import type { Layer } from "../Layer";
 
 export { Vec2D, BoundBox, ClipedArea };
 
@@ -30,4 +31,12 @@ export interface MyPointerEvent {
 	pressure: number;
 	pos: Vec2D;
 	e: PointerEvent | WheelEvent | MouseEvent;
+}
+
+/** 插件注册接口 */
+export interface RenderLayerEntry {
+	id: string;
+	/** 渲染层级，数值越大越靠前（后绘制） */
+	zIndex: number;
+	layer: Layer;
 }

@@ -62,12 +62,4 @@ export class BoundBox {
 			right: Math.min(a.right, b.right),
 		};
 	}
-	static shrink(box: BoundBox, max_w: number, max_h: number): BoundBox {
-		return {
-			top: Clamp(box.top, 0, max_h),
-			bottom: Clamp(box.bottom, 0, max_h),
-			left: Clamp(box.left, 0, max_w),
-			right: Clamp(box.right, 0, max_w),
-		};
-	}
 }

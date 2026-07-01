@@ -15,7 +15,7 @@ import { TransformManager } from "./Transform";
 import { LayerManager } from "./LayerManager";
 import { RenderPipeline } from "./RenderPipeline";
 import { Layer } from "./Layer";
-import type { RenderLayerEntry } from "./RenderLayer";
+import type { RenderLayerEntry } from "./Types";
 import { MouseTrajectory } from "./MouseTrajectory";
 
 export interface PaintOption {
@@ -139,7 +139,6 @@ export class Paint {
 		this.mirrorBrush = createMirror<typeof this, BaseBrush>(this, ["brushManager", "brush"]);
 		this.mouseTrajectory = new MouseTrajectory();
 		this.line = new Line(
-			this.mirrorCtx,
 			this.mirrorBrush,
 			(rect: BoundBox) => {
 				this.layerManager.currentLayer.markDirty(rect);
@@ -156,7 +155,6 @@ export class Paint {
 			id: "background-layer",
 			zIndex: -1,
 			layer: this.backgroundLayer,
-			pluginId: "__background__",
 		};
 		this.renderPipeline.registerRenderLayer(backgroundEntry);
 		this.cursorLayer = new Layer({
@@ -168,7 +166,6 @@ export class Paint {
 			id: "cursor-layer",
 			zIndex: 10000,
 			layer: this.cursorLayer,
-			pluginId: "__paint__",
 		};
 		this.renderPipeline.registerRenderLayer(cursorEntry);
 		this.transform.applyTo(this.viewCtx);

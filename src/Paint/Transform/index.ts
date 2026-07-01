@@ -5,11 +5,11 @@ import type { ZoomOptions } from "../Types";
 /**
  * TransformManager - Canvas 变换管理
  *
- * 纯数据+计算类，不依赖 Paint 或 CanvasRenderingContext2D 引用。
- * 负责缩放、旋转、平移的状态管理和矩阵计算。
+ * 纯数据+计算类
+ * 负责缩放、旋转、平移的状态管理和矩阵计算
  *
  * 缩放采用步数驱动：预计算两个等比数列（wheel 小步进 / keyboard 大步进），
- * 每次缩放按 delta 步进到数列中固定的缩放比例，确保可逆性和一致性。
+ * 每次缩放按 delta 步进到数列中固定的缩放比例，确保可逆性和一致性
  */
 export class TransformManager {
 	/** 缩放比例 */
@@ -70,11 +70,11 @@ export class TransformManager {
 		this._grabbing = value;
 	}
 
-	/** 画布宽度（只读） */
+	/** 画布宽度 */
 	get width(): number {
 		return this._canvasWidth;
 	}
-	/** 画布高度（只读） */
+	/** 画布高度 */
 	get height(): number {
 		return this._canvasHeight;
 	}
@@ -119,7 +119,6 @@ export class TransformManager {
 			if (levels[mid] < target) lo = mid + 1;
 			else hi = mid;
 		}
-		// lo 是第一个 >= target 的元素
 		if (lo === 0) return 0;
 		if (lo >= levels.length) return levels.length - 1;
 		return target - levels[lo - 1] < levels[lo] - target ? lo - 1 : lo;
@@ -150,9 +149,9 @@ export class TransformManager {
 	}
 
 	/**
-	 * 以指定点为中心缩放到指定值（仅更新状态，不涉及渲染）
-	 * @param scale 目标缩放值（会被 clamp 到 [minScale, maxScale]）
-	 * @param center 缩放中心点（屏幕坐标）
+	 * 以指定点为中心缩放到指定值
+	 * @param scale 目标缩放值
+	 * @param center 缩放中心点
 	 * @returns 返回 true 表示成功缩放，false 表示已在边界无法继续
 	 */
 	zoom(scale: number, center?: Vec2D): boolean {
@@ -185,7 +184,7 @@ export class TransformManager {
 	}
 
 	/**
-	 * 缩放步进（支持平滑动画）
+	 * 缩放步进
 	 * @param delta 方向 (+1 放大, -1 缩小)
 	 * @param options 缩放选项
 	 * @param onUpdate 每帧更新后的回调（用于 applyTo + 渲染）
@@ -242,14 +241,14 @@ export class TransformManager {
 
 	/**
 	 * 旋转到指定角度
-	 * @param degree 角度，使用 CircleClamp 保持在 [-360, 360] 范围
+	 * @param degree 角度
 	 */
 	rotateTo(degree: number): void {
 		this.rotation = CircleClamp(degree, -360, 360);
 	}
 
 	/**
-	 * 平移（考虑旋转补偿）
+	 * 平移
 	 * @param screenPos 当前屏幕坐标
 	 */
 	pan(screenPos: Vec2D): void {
@@ -270,7 +269,7 @@ export class TransformManager {
 	/**
 	 * 屏幕坐标转画布坐标
 	 * @param screenPos 屏幕坐标
-	 * @param ctx Canvas 上下文（用于获取当前变换矩阵）
+	 * @param ctx Canvas 上下文
 	 */
 	screenToCanvas(screenPos: Vec2D, ctx: CanvasRenderingContext2D): Vec2D {
 		const t = ctx.getTransform();
