@@ -2,7 +2,7 @@ import { Cursor } from "../Cursor";
 import { Layer } from "../Layer";
 import { Vec2D } from "../Types";
 import { BoundBox } from "../Types";
-import type { TransformManager } from "../Transform";
+import { TransformManager } from "../Transform";
 
 export class CursorRenderer {
 	public cursor: Cursor;

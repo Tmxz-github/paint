@@ -69,41 +69,44 @@ export class CanvasHistory {
 	}
 
 	private findPixelDiff(lineBBox: BoundBox, currentLayer: Layer) {
-		const preData = currentLayer.preCtx.getImageData(
-			lineBBox.left,
-			lineBBox.top,
-			lineBBox.right - lineBBox.left,
-			lineBBox.bottom - lineBBox.top,
-		);
-		const changedData = currentLayer.vCtx.getImageData(
-			lineBBox.left,
-			lineBBox.top,
-			lineBBox.right - lineBBox.left,
-			lineBBox.bottom - lineBBox.top,
-		);
+		const w = lineBBox.right - lineBBox.left;
+		const h = lineBBox.bottom - lineBBox.top;
+
+		const preData = currentLayer.preCtx.getImageData(lineBBox.left, lineBBox.top, w, h);
+		const changedData = currentLayer.vCtx.getImageData(lineBBox.left, lineBBox.top, w, h);
+
+		// Uint32Array 视图：一次比较 4 字节（RGBA），避免逐通道 slice 和循环
+		const preU32 = new Uint32Array(preData.data.buffer);
+		const changedU32 = new Uint32Array(changedData.data.buffer);
 
 		const pixelDiff: PixelDiff[] = [];
-
 		let x = 0;
 		let y = 0;
-		for (let i = 0; i < changedData.data.length; i += 4) {
-			const pre = preData.data.slice(i, i + 4);
-			const cur = changedData.data.slice(i, i + 4);
-			for (let j = 0; j < 4; j += 1) {
-				if (pre[j] !== cur[j]) {
-					pixelDiff.push({
-						pos: {
-							x: x + lineBBox.left,
-							y: y + lineBBox.top,
-						},
-						changedColor: cur,
-						preColor: pre,
-					});
-					break;
-				}
+		const pixelCount = w * h;
+		for (let i = 0; i < pixelCount; i++) {
+			if (preU32[i] !== changedU32[i]) {
+				const idx = i << 2; // i * 4
+				pixelDiff.push({
+					pos: {
+						x: x + lineBBox.left,
+						y: y + lineBBox.top,
+					},
+					changedColor: new Uint8ClampedArray([
+						changedData.data[idx],
+						changedData.data[idx + 1],
+						changedData.data[idx + 2],
+						changedData.data[idx + 3],
+					]),
+					preColor: new Uint8ClampedArray([
+						preData.data[idx],
+						preData.data[idx + 1],
+						preData.data[idx + 2],
+						preData.data[idx + 3],
+					]),
+				});
 			}
 			x += 1;
-			if (x >= changedData.width) {
+			if (x >= w) {
 				x = 0;
 				y += 1;
 			}
@@ -128,6 +131,7 @@ export class CanvasHistory {
 		if (this.layerDiffs.length > this.stackMaxLength) {
 			this.layerDiffs.shift();
 		}
+		console.log(this.layerDiffs)
 	}
 
 	public undo() {
