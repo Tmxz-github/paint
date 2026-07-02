@@ -53,6 +53,7 @@ export class DrawMode implements PaintMode {
 				layer: this.ctx.layerManager.currentLayer,
 			};
 			this.ctx.plugins.forEach((p) => p.onBrushCommit?.(commitData));
+			this.ctx.layerManager.currentLayer.snapshot();
 			this.lineBBox = BoundBox.Empty;
 		}
 		this.drawing = false;

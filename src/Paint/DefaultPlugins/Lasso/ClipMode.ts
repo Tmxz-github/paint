@@ -50,13 +50,7 @@ export class ClipMode extends PaintMode {
 
 			this.selector.drawSelection(this.ctx.cursorRenderer.canvasPos);
 
-			const mergedBox = BoundBox.inflate(
-				BoundBox.merge(
-					oldBox,
-					this.selector.boundBox
-				),
-				2,
-			);
+			const mergedBox = BoundBox.inflate(BoundBox.merge(oldBox, this.selector.boundBox), 2);
 			this.lassoRectLayer.markDirty(mergedBox);
 			return;
 		}
@@ -107,15 +101,12 @@ export class ClipMode extends PaintMode {
 		this.grabContent(this.selector.boundBox);
 
 		const mergedRectBox = BoundBox.inflate(
-			BoundBox.merge(
-				oldBox,
-				{
-					top: this.selector.boundBox.top,
-					left: this.selector.boundBox.left,
-					bottom: this.selector.boundBox.bottom,
-					right: this.selector.boundBox.right,
-				},
-			),
+			BoundBox.merge(oldBox, {
+				top: this.selector.boundBox.top,
+				left: this.selector.boundBox.left,
+				bottom: this.selector.boundBox.bottom,
+				right: this.selector.boundBox.right,
+			}),
 			2,
 		);
 		this.lassoRectLayer.markDirty(mergedRectBox);
@@ -216,6 +207,7 @@ export class ClipMode extends PaintMode {
 				this.ctx.layerManager.currentLayer,
 				this.selector.boundBox,
 			);
+			this.ctx.layerManager.currentLayer.snapshot();
 			this.clipped = true;
 			this.ctx.state = "CLIP";
 		}
