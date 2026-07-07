@@ -8,6 +8,10 @@ export class Vec2D {
 		y: 0,
 	};
 
+	static IsZero(a: Vec2D): boolean {
+		return a.x === 0 && a.y === 0;
+	}
+
 	/** a + b */
 	static Add(a: Vec2D, b: Vec2D) {
 		return {

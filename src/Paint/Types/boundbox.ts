@@ -1,4 +1,3 @@
-import { Clamp } from "../Utils";
 import type { Vec2D } from "./vec2d";
 
 export interface BoundBox {
@@ -9,6 +8,10 @@ export interface BoundBox {
 }
 export class BoundBox {
 	static readonly Empty: BoundBox = { top: Infinity, bottom: 0, left: Infinity, right: 0 };
+
+	static IsEmpty(a: BoundBox): boolean {
+		return a.top >= a.bottom && a.left >= a.right;
+	}
 
 	/** 合并两个包围盒 */
 	static merge(a: BoundBox, b: BoundBox): BoundBox {

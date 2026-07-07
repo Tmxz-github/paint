@@ -1,4 +1,4 @@
-import type { BoundBox, Vec2D } from "../Types";
+import { Vec2D, type BoundBox } from "../Types";
 import type { DirPoint } from "../Types";
 
 /** a * (1 - f) + b * f  */
@@ -103,7 +103,7 @@ export const inBBox = (pos: Vec2D, boundBox: BoundBox): boolean => {
  * 从原点 (point.x, point.y) 沿 (point.dir.x, point.dir.y) 方向发射射线，
  * 返回与 BoundBox 四条边中最早相交的那个交点。
  *
- * 若没有有效交点（零向量方向），返回原点本身。
+ * 若没有有效交点，返回Zero
  */
 export const extendToBoundBox = (point: DirPoint, boundBox: BoundBox): Vec2D => {
 	const { x: ox, y: oy } = point;
@@ -111,8 +111,8 @@ export const extendToBoundBox = (point: DirPoint, boundBox: BoundBox): Vec2D => 
 	const dy = point.dir.y;
 
 	// 方向零向量 → 无法延申，返回原点
-	if (dx === 0 && dy === 0) {
-		return { x: ox, y: oy };
+	if (Vec2D.IsZero(point.dir)) {
+		return Vec2D.Zero;
 	}
 
 	let bestT = Infinity;
@@ -168,8 +168,8 @@ export const extendToBoundBox = (point: DirPoint, boundBox: BoundBox): Vec2D => 
 	}
 
 	if (bestT === Infinity) {
-		// 未找到有效交点（可能射线背离 BoundBox），返回原点
-		return { x: ox, y: oy };
+		// 未找到有效交点, 返回 Zero
+		return Vec2D.Zero;
 	}
 
 	return { x: bestX, y: bestY };
