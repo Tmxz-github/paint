@@ -65,7 +65,7 @@ export { BaseSelector } from "./Paint/Selectors";
 export { LassoSelector } from "./Paint/DefaultPlugins/Lasso/LassoSelector";
 
 // --- 工具函数 ---
-export { Mix, Clamp, CircleClamp, easeOutDecay, createMirror, deepClone, extendToBoundBox } from "./Paint/Utils";
+export { Mix, Clamp, CircleClamp, easeOutDecay, deepClone, extendToBoundBox } from "./Paint/Utils";
 export { createCanvasContext } from "./Paint/Utils/canvas";
 export { screenToCanvas, canvasToScreen } from "./Paint/Utils/canvas";
 export { genBezierPoints } from "./Paint/Utils/line";

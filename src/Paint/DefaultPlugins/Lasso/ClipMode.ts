@@ -48,7 +48,7 @@ export class ClipMode extends PaintMode {
 		if (this.ctx.canDraw && this.ctx.state === "CLIP") {
 			const oldBox = this.selector.boundBox;
 
-			this.selector.drawSelection(this.ctx.cursorRenderer.canvasPos);
+			this.selector.drawSelection([this.selector.startPoint, this.ctx.cursorRenderer.canvasPos]);
 
 			const mergedBox = BoundBox.inflate(BoundBox.merge(oldBox, this.selector.boundBox), 2);
 			this.lassoRectLayer.markDirty(mergedBox);
@@ -95,7 +95,7 @@ export class ClipMode extends PaintMode {
 		lassoCtx.clearRect(oldBox.left, oldBox.top, oldBox.right - oldBox.left, oldBox.bottom - oldBox.top);
 
 		// 在新的偏移位置绘制选区（clear=true 清空 lassoRectLayer 全画布）
-		this.selector.drawSelection(Vec2D.Add(this.selector.preEndpoint, offset));
+		this.selector.drawSelection([this.selector.startPoint, Vec2D.Add(this.selector.preEndpoint, offset)]);
 
 		// 将剪切内容放置到新的位置
 		this.grabContent(this.selector.boundBox);
@@ -143,7 +143,7 @@ export class ClipMode extends PaintMode {
 
 	private onPointerUp(_ev: MyPointerEvent) {
 		if (this.ctx.state === "CLIP") {
-			this.selector.drawSelection(this.ctx.cursorRenderer.canvasPos);
+			this.selector.drawSelection([this.selector.startPoint, this.ctx.cursorRenderer.canvasPos]);
 		}
 		if (this.ctx.state === "CLIPPING") {
 			this.selector.drawSelection(undefined, false);
@@ -166,6 +166,7 @@ export class ClipMode extends PaintMode {
 				origRight - origLeft,
 				origBottom - origTop,
 			);
+            this.selector.setMinBoundBox(this.clipedArea.imageData);
 			this.clipedArea.boundBox = this.selector.boundBox;
 			this.clipedArea.imageData = this.ctx.layerManager.currentLayer.vCtx.getImageData(
 				this.selector.boundBox.left,

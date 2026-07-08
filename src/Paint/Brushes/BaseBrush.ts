@@ -1,4 +1,5 @@
 import type { Vec2D } from "../Types";
+import type { context2D } from "../Types/canvas";
 import { Clamp } from "../Utils";
 
 /**
@@ -8,8 +9,10 @@ import { Clamp } from "../Utils";
  */
 export abstract class BaseBrush {
 	public readonly name: string;
-
-	protected readonly brushCtx: CanvasRenderingContext2D;
+    protected getBrushCtx: () => context2D;
+    protected get brushCtx() {
+        return this.getBrushCtx();
+    }
 
 	protected _size: number;
 	protected _thickness: number;
@@ -18,8 +21,8 @@ export abstract class BaseBrush {
 	protected readonly sizeMin: number = 0.1;
 	protected readonly sizeMax: number = 128;
 
-	constructor(brushCtx: CanvasRenderingContext2D, name: string, size: number, thickness: number, color: string = "transparent") {
-		this.brushCtx = brushCtx;
+	constructor(getCtx: () => context2D, name: string, size: number, thickness: number, color: string = "transparent") {
+        this.getBrushCtx = getCtx;
 		this._size = Clamp(size, this.sizeMin, this.sizeMax);
 		this._thickness = Clamp(thickness, 0.1, 1);
 		this._color = color;

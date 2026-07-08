@@ -98,11 +98,17 @@ export class LassoSelector extends BaseSelector {
 			y: this.boundBox.top,
 		};
 
-		this.drawSelection({ x: this.boundBox.right, y: this.boundBox.bottom });
+		const endPoint = { x: this.boundBox.right, y: this.boundBox.bottom };
+		this.drawSelection([this.startPoint, endPoint]);
 	}
 
 	/** 绘制选区矩形 */
-	public drawSelection(point?: Vec2D, clear: boolean = true) {
+	public drawSelection(points?: Vec2D[], clear: boolean = true) {
+		if (!points) return;
+		if (points.length < 2) {
+			return;
+		}
+		const [startPoint, endPoint] = points;
 		this.selectorCtx.save();
 
 		this.selectorCtx.fillStyle = "black";
@@ -111,27 +117,14 @@ export class LassoSelector extends BaseSelector {
 		if (clear) {
 			this.selectorCtx.clearRect(0, 0, this.selectorCtx.canvas.width, this.selectorCtx.canvas.height);
 		}
-		if (point) {
-			this.preEndpoint = {
-				x: point.x,
-				y: point.y,
-			};
-		}
+		this.preEndpoint = endPoint;
 		this.preEndpoint.x = Math.floor(this.preEndpoint.x) + 0.5;
 		this.preEndpoint.y = Math.floor(this.preEndpoint.y) + 0.5;
-		this.boundBox = this.drawRect(this.startPoint, this.preEndpoint);
+		this.boundBox = this.drawRect(startPoint, this.preEndpoint);
 		this.selectorCtx.restore();
 	}
 
 	public getBoundBox(): BoundBox {
 		return this.boundBox;
-	}
-
-	public getStartPoint(): Vec2D {
-		return this._startPoint;
-	}
-
-	public setStartPoint(point: Vec2D): void {
-		this.startPoint = point;
 	}
 }

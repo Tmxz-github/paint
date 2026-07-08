@@ -1,5 +1,6 @@
 import { createCanvasContext } from "../Utils/canvas";
 import { BoundBox } from "../Types";
+import type { context2D } from "../Types/canvas";
 
 interface LayerOption {
 	width: number;
@@ -7,9 +8,9 @@ interface LayerOption {
 }
 
 export class Layer {
-	public readonly preCtx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+	public readonly preCtx: context2D;
 	public visible: boolean = true;
-	public readonly vCtx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+	public readonly vCtx: context2D;
 	public dirtyRect: BoundBox | null = null;
 	constructor(option: LayerOption) {
 		const { width, height } = option;

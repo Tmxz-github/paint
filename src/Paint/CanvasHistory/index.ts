@@ -131,7 +131,6 @@ export class CanvasHistory {
 		if (this.layerDiffs.length > this.stackMaxLength) {
 			this.layerDiffs.shift();
 		}
-		console.log(this.layerDiffs)
 	}
 
 	public undo() {

@@ -2,6 +2,7 @@ import { Layer } from "../Layer";
 import type { RenderLayerEntry } from "../Types";
 import type { PaintPlugin } from "../DefaultPlugins";
 import { BoundBox } from "../Types";
+import type { context2D } from "../Types/canvas";
 
 /**
  * RenderPipeline - 渲染管线
@@ -14,7 +15,7 @@ export class RenderPipeline {
 	renderLayersRegistry: RenderLayerEntry[] = [];
 
 	constructor(
-		private readonly viewCtx: CanvasRenderingContext2D,
+		private readonly viewCtx: context2D,
 		private readonly canvasElement: HTMLCanvasElement,
 		private readonly getBackgroundColor: () => string,
 		private readonly getBoardColor: () => string,

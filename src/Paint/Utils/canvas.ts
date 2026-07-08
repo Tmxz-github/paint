@@ -1,5 +1,6 @@
-type Canvas = OffscreenCanvas | HTMLCanvasElement;
-type context2D = OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
+import type { Vec2D } from "../Types/vec2d";
+import type { TransformManager } from "../Transform";
+import type { Canvas, context2D } from "../Types/canvas";
 
 /** 传入高宽或者imageData获取canvasContext */
 export function createCanvasContext(imagedata: ImageData): context2D;
@@ -32,9 +33,6 @@ export function createCanvasContext(widthOrImageData: number | ImageData, height
 	}
 	return ctx;
 }
-
-import type { Vec2D } from "../Types/vec2d";
-import type { TransformManager } from "../Transform";
 
 /**
  * 将 screenPos（canvas 实例上的鼠标坐标，不受缩放/旋转/平移影响）

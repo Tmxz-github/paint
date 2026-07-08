@@ -5,8 +5,7 @@ import { Line } from "./Line";
 import { BrushManager } from "./BrushManager";
 import { CursorRenderer } from "./CursorRenderer";
 import { PointerListener } from "./Input/pointer-listener";
-import { Pen, type BaseBrush, type BrushStyle, type BrushTypes } from "./Brushes";
-import { createMirror } from "./Utils";
+import { Pen, type BrushStyle, type BrushTypes } from "./Brushes";
 import { CanvasHistory } from "./CanvasHistory";
 import { BaseMode, type PaintMode } from "./Mode";
 import { DrawMode } from "./Mode/drawMode";
@@ -17,6 +16,7 @@ import { RenderPipeline } from "./RenderPipeline";
 import { Layer } from "./Layer";
 import type { RenderLayerEntry } from "./Types";
 import { MouseTrajectory } from "./MouseTrajectory";
+import type { context2D } from "./Types/canvas";
 
 export interface PaintOption {
 	containerEl: HTMLElement;
@@ -43,13 +43,9 @@ export class Paint {
 	/** 剪切框内容以及范围 */
 	public readonly clipedArea: ClipedArea;
 	/** 图层管理器 */
-	public readonly layerManager!: LayerManager;
+	public readonly layerManager: LayerManager;
 	/** 渲染管线 */
 	public readonly renderPipeline: RenderPipeline;
-	/** 同步笔刷 */
-	public readonly mirrorBrush: BaseBrush;
-	/** 同步 currentLayer */
-	public readonly mirrorCtx: CanvasRenderingContext2D;
 	/** 光标离屏渲染层，通过 renderPipeline 合成到 viewCtx */
 	public readonly cursorLayer: Layer;
 	/** 鼠标轨迹数据（原始点 + 插值后的平滑点），供外部工具读取 */
@@ -66,7 +62,7 @@ export class Paint {
 	/** canvas html 元素 */
 	public canvasElement: HTMLCanvasElement;
 	/** 视窗绘制上下文，只负责最终渲染，所有绘制应先在其余离线 canvas 上绘制后再合并绘制到 viewCtx 中 */
-	public viewCtx: CanvasRenderingContext2D;
+	public viewCtx: context2D;
 	/** 画布已经点击 */
 	public canvasReady: boolean = false;
 	/** 放置画布的画板背景色 */
@@ -121,12 +117,7 @@ export class Paint {
 		this.pointerListener = new PointerListener(this.containerEl);
 		this.keyListener = new KeyListener(this.containerEl);
 		this.layerManager = new LayerManager(this.canvasElement.width, this.canvasElement.height);
-		this.mirrorCtx = createMirror<typeof this, CanvasRenderingContext2D>(this, [
-			"layerManager",
-			"currentLayer",
-			"vCtx",
-		]);
-		this.brushManager = new BrushManager(new Pen(this.mirrorCtx, "PEN"));
+		this.brushManager = new BrushManager(new Pen(this.getCurrentCtx.bind(this), "PEN"));
 		this.renderPipeline = new RenderPipeline(
 			this.viewCtx,
 			this.canvasElement,
@@ -136,10 +127,11 @@ export class Paint {
 			() => this.plugins,
 		);
 		this.canvasHistory = new CanvasHistory();
-		this.mirrorBrush = createMirror<typeof this, BaseBrush>(this, ["brushManager", "brush"]);
 		this.mouseTrajectory = new MouseTrajectory();
 		this.line = new Line(
-			this.mirrorBrush,
+			() => {
+				return this.brushManager.brush;
+			},
 			(rect: BoundBox) => {
 				this.layerManager.currentLayer.markDirty(rect);
 			},
@@ -254,6 +246,10 @@ export class Paint {
 		this.renderPipeline.renderLayers();
 	}
 
+	public getCurrentCtx(): context2D {
+		return this.layerManager.currentLayer.vCtx;
+	}
+
 	/** 设置图层信息，目前只设置是否可见 */
 	public setLayerInfo(v: boolean, i: number) {
 		this.layerManager.setLayerInfo(v, i);
@@ -282,7 +278,7 @@ export class Paint {
 	}
 
 	/**
-	 * 
+	 *
 	 * @param degree 度数
 	 */
 	public rotateTo(degree: number) {

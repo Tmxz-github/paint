@@ -1,4 +1,3 @@
-import { Pen } from "../Brushes/Pen";
 import type { DirPoint } from "../Types";
 import { BoundBox, Vec2D } from "../Types";
 import { Clamp, deepClone, easeOutDecay, Mix } from "../Utils";
@@ -13,13 +12,16 @@ export class Line {
 	private lastPoint: Vec2D = Vec2D.Zero;
 	private bezierPoints: Vec2D[] = [];
 	private _currentDirtyRect: BoundBox | null = null;
+	private pointsLine: PointsLine;
+    private get brush() {
+        return this.getBrush();
+    }
+
 	private readonly _onDirty?: (rect: BoundBox) => void;
 	private readonly _mouseTrajectory?: MouseTrajectory;
 
-	public pointsLine: PointsLine;
-
 	constructor(
-		private brush: BaseBrush,
+        private getBrush: () => BaseBrush,
 		onDirty?: (rect: BoundBox) => void,
 		mouseTrajectory?: MouseTrajectory,
 	) {
@@ -81,7 +83,7 @@ export class Line {
 		// 计算当前 Bezier 段的脏区：从采样点计算包围盒，向外膨胀笔刷半径
 		const segmentBBox = BoundBox.inflate(
 			BoundBox.fromPoints(this.bezierPoints),
-			this.brush.size * 1.5, // 膨胀笔刷半径的 1.5 倍确保覆盖圆形笔触
+			this.brush.size * 1.5,
 		);
 		this._currentDirtyRect = segmentBBox;
 		if (this._onDirty) {
@@ -89,7 +91,7 @@ export class Line {
 		}
 
 		this.pointsLine.addPoints(this.bezierPoints);
-		this.renderLine();
+		this.renderLine(this.pointsLine);
 	}
 
 	public endLine() {
@@ -108,14 +110,20 @@ export class Line {
 		this.bezierPoints = [];
 	}
 
-	private renderLine() {
+    /**
+     * 直接根据所给点绘制线条，不会计算脏区
+     * 
+     * 慎用
+     * 
+     */
+	public renderLine(pointsLine: PointsLine) {
 		const size = easeOutDecay(this.brush.size) / 16;
-		const len = this.pointsLine.getLength();
+		const len = pointsLine.getLength();
 		let tempSpacing = Mix(size, size, Clamp(this.lastDot / len, 0, 1));
 		let d = this.lastDot;
 		for (; d <= len; d += tempSpacing) {
 			tempSpacing = Mix(size, size, Clamp(d / len, 0, 1));
-			const point = this.pointsLine.getAtDist(d);
+			const point = pointsLine.getAtDist(d);
 			if (this.brush?.drawDot) {
 				this.brush.drawDot(point);
 			}

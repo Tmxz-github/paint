@@ -1,6 +1,7 @@
 import { Vec2D } from "../Types/vec2d";
 import { CircleClamp, Clamp } from "../Utils";
 import type { ZoomOptions } from "../Types";
+import type { context2D } from "../Types/canvas";
 
 /**
  * TransformManager - Canvas 变换管理
@@ -127,7 +128,7 @@ export class TransformManager {
 	/**
 	 * 应用变换到 canvas 上下文
 	 */
-	applyTo(ctx: CanvasRenderingContext2D): void {
+	applyTo(ctx: context2D): void {
 		const center = {
 			x: this._canvasWidth / 2,
 			y: this._canvasHeight / 2,
@@ -271,7 +272,7 @@ export class TransformManager {
 	 * @param screenPos 屏幕坐标
 	 * @param ctx Canvas 上下文
 	 */
-	screenToCanvas(screenPos: Vec2D, ctx: CanvasRenderingContext2D): Vec2D {
+	screenToCanvas(screenPos: Vec2D, ctx: context2D): Vec2D {
 		const t = ctx.getTransform();
 		const inverse = t.inverse();
 		return {

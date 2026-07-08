@@ -1,11 +1,12 @@
 import type { Vec2D } from "../../Types";
 import { BaseBrush } from "../../Brushes/BaseBrush";
+import type { context2D } from "../../Types/canvas";
 
 export class EraserBrush extends BaseBrush {
 	protected readonly sizeMin = 1;
 
-	constructor(brushCtx: CanvasRenderingContext2D, name: string, size: number, thickness: number = 1) {
-		super(brushCtx, name, size, thickness, "transparent");
+	constructor(getCtx: () => context2D, name: string, size: number, thickness: number = 1) {
+		super(getCtx, name, size, thickness, "transparent");
 	}
 
 	public drawDot(point: Vec2D) {

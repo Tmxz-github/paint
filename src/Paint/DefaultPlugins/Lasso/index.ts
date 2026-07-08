@@ -2,6 +2,7 @@
 import type { Paint } from "../..";
 import { Layer } from "../../Layer";
 import type { AnyObject } from "../../Types";
+import type { context2D } from "../../Types/canvas";
 import { ClipMode } from "./ClipMode";
 import { LassoSelector } from "./LassoSelector";
 
@@ -35,7 +36,7 @@ export class Lasso extends PaintPlugin {
 			width: instance.width,
 			height: instance.height,
 		});
-		this.selector = new LassoSelector(this._lassoRectLayer.vCtx as CanvasRenderingContext2D);
+		this.selector = new LassoSelector(this._lassoRectLayer.vCtx as context2D);
 		this.mode = new ClipMode(instance, this._lassoLayer, this._lassoRectLayer, this.selector);
 		instance.renderPipeline.registerRenderLayer({
 			id: "lasso-content",
@@ -47,7 +48,5 @@ export class Lasso extends PaintPlugin {
 			zIndex: 200,
 			layer: this._lassoRectLayer,
 		});
-		// LassoSelector 不注册到 brushes map（它不是笔刷）
-		// ClipMode 直接持有 selector 引用
 	}
 }

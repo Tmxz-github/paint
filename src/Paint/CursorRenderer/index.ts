@@ -3,6 +3,7 @@ import { Layer } from "../Layer";
 import { Vec2D } from "../Types";
 import { BoundBox } from "../Types";
 import { TransformManager } from "../Transform";
+import type { context2D } from "../Types/canvas";
 
 export class CursorRenderer {
 	public cursor: Cursor;
@@ -16,7 +17,7 @@ export class CursorRenderer {
 	private _lastCursorCanvasPos: Vec2D | null = null;
 
 	constructor(
-		private viewCtx: CanvasRenderingContext2D,
+		private viewCtx: context2D,
 		private readonly cursorLayer: Layer,
 		private readonly transform: TransformManager,
 	) {

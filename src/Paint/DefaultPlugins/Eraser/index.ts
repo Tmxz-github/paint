@@ -1,5 +1,6 @@
 import { PaintPlugin } from "..";
 import { Paint } from "../..";
+import type { AnyObject } from "../../Types";
 import { EraserBrush } from "./EraserBrush";
 
 export class Eraser extends PaintPlugin {
@@ -9,7 +10,14 @@ export class Eraser extends PaintPlugin {
 	}
 
 	apply(instance: Paint) {
-		const eraser = new EraserBrush(instance.mirrorCtx, "EREASER", 2, 0.5);
+		this.on("SWITCH_BRUSH", (data: AnyObject) => {
+			const type = data.type;
+			if (!type || typeof type !== "string") return;
+			if (type === "ERASER") {
+				instance.brushManager.setBursh("ERASER");
+			}
+		});
+		const eraser = new EraserBrush(instance.getCurrentCtx.bind(instance), "EREASER", 2, 0.5);
 		instance.brushManager.brushes.set("ERASER", eraser);
 	}
 }

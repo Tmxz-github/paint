@@ -3,6 +3,7 @@ import type { AnyObject, PaintEvents } from "../Types";
 import type { Layer } from "../Layer";
 import type { BaseBrush } from "../Brushes";
 import type { BoundBox } from "../Types";
+import type { context2D } from "../Types/canvas";
 
 /** 笔刷提交数据，一笔绘制完成后传递给插件 */
 export interface BrushCommitData {
@@ -41,10 +42,10 @@ export class PaintPlugin {
 	public onUninstall?(): void;
 
 	/** 渲染前调用 */
-	public onRenderBefore?(ctx: CanvasRenderingContext2D): void;
+	public onRenderBefore?(ctx: context2D): void;
 
 	/** 渲染后调用 */
-	public onRenderAfter?(ctx: CanvasRenderingContext2D): void;
+	public onRenderAfter?(ctx: context2D): void;
 
 	/** 笔刷提交后调用（一笔绘制完成） */
 	public onBrushCommit?(data: BrushCommitData): void;
