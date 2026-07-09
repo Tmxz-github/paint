@@ -2,6 +2,7 @@ import { BaseSelector } from "../../Selectors/BaseSelector";
 import { TRANSPARENT } from "../../constants";
 import { BoundBox } from "../../Types";
 import { Vec2D } from "../../Types/vec2d";
+import type { context2D } from "../../Types/canvas";
 
 export class LassoSelector extends BaseSelector {
 	public get startPoint(): Vec2D {
@@ -16,6 +17,11 @@ export class LassoSelector extends BaseSelector {
 	private _startPoint: Vec2D = Vec2D.Zero;
 	public preEndpoint: Vec2D = Vec2D.Zero;
 	public boundBox: BoundBox = BoundBox.Empty;
+	private rectLineWidth: number = 1;
+
+	constructor(selectorCtx: context2D) {
+		super(selectorCtx);
+	}
 
 	private drawRect(point1: Vec2D, point2: Vec2D): BoundBox {
 		if (Vec2D.Equal(point1, point2)) return BoundBox.Empty;
@@ -41,7 +47,6 @@ export class LassoSelector extends BaseSelector {
 		let xr = width * 4 - 1;
 		const pixelLength = width * 4;
 
-		// 从上往下扫描，找到第一行非透明像素
 		for (let x = 0; x < pixelLength; x += 4) {
 			if (imageData.data[x + 3 + yt * pixelLength] !== TRANSPARENT) {
 				this.boundBox.top += yt;
@@ -54,7 +59,6 @@ export class LassoSelector extends BaseSelector {
 			}
 		}
 
-		// 从下往上扫描，找到最后一行非透明像素
 		for (let x = 0; x < pixelLength; x += 4) {
 			if (imageData.data[x + 3 + yb * pixelLength] !== TRANSPARENT) {
 				this.boundBox.bottom -= height - yb - 2;
@@ -67,7 +71,6 @@ export class LassoSelector extends BaseSelector {
 			}
 		}
 
-		// 从左往右扫描，找到第一列非透明像素
 		for (let y = 0; y < height; y += 1) {
 			if (imageData.data[xl + 3 + y * pixelLength] !== TRANSPARENT) {
 				this.boundBox.left += xl / 4;
@@ -80,7 +83,6 @@ export class LassoSelector extends BaseSelector {
 			}
 		}
 
-		// 从右往左扫描，找到最后一列非透明像素
 		for (let y = 0; y < height; y += 1) {
 			if (imageData.data[xr + y * pixelLength] !== TRANSPARENT) {
 				this.boundBox.right -= width - xr / 4 - 1;
@@ -102,24 +104,20 @@ export class LassoSelector extends BaseSelector {
 		this.drawSelection([this.startPoint, endPoint]);
 	}
 
-	/** 绘制选区矩形 */
-	public drawSelection(points?: Vec2D[], clear: boolean = true) {
+	public drawSelection(points?: Vec2D[]) {
 		if (!points) return;
-		if (points.length < 2) {
-			return;
-		}
+		if (points.length < 2) return;
 		const [startPoint, endPoint] = points;
-		this.selectorCtx.save();
 
-		this.selectorCtx.fillStyle = "black";
-		this.selectorCtx.lineDashOffset = 0.1;
-
-		if (clear) {
-			this.selectorCtx.clearRect(0, 0, this.selectorCtx.canvas.width, this.selectorCtx.canvas.height);
-		}
 		this.preEndpoint = endPoint;
 		this.preEndpoint.x = Math.floor(this.preEndpoint.x) + 0.5;
 		this.preEndpoint.y = Math.floor(this.preEndpoint.y) + 0.5;
+
+		this.selectorCtx.save();
+		this.selectorCtx.lineWidth = this.rectLineWidth;
+		this.selectorCtx.strokeStyle = "#000";
+		this.selectorCtx.setLineDash([4, 3]);
+		this.selectorCtx.lineDashOffset = 0.1;
 		this.boundBox = this.drawRect(startPoint, this.preEndpoint);
 		this.selectorCtx.restore();
 	}
