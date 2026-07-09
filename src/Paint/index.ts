@@ -77,6 +77,9 @@ export class Paint {
 		return this._mode;
 	}
 	set mode(newMode) {
+		if (newMode === this._mode) {
+			return;
+		}
 		newMode.onEnterMode(undefined);
 		this._mode?.onLeaveMode(undefined);
 		this._mode = newMode;

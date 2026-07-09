@@ -27,7 +27,6 @@ export class ClipMode extends PaintMode {
 	}
 
 	onEnterMode(_data: any): void {
-		if (this.ctx.state === "CLIP") return;
 		this.ctx.state = "CLIP";
 		this.clipped = false;
 		this.ctx.pointerListener.on("MOVE", this.onPointerMove, this);
@@ -151,6 +150,7 @@ export class ClipMode extends PaintMode {
 	}
 
 	private onEnterDown() {
+		console.log(this.ctx.state)
 		if (this.ctx.state === "CLIP") {
 			this.ctx.state = "CLIPPING";
 			this.clipStarted = true;
