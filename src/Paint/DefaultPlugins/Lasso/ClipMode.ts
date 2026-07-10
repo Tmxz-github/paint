@@ -13,8 +13,6 @@ export class ClipMode extends PaintMode {
 	private readonly clipedArea: ClipedArea = ClipedArea.Empty;
 	private clipped: boolean = false;
 	private clipGrabStartPos: Vec2D = Vec2D.Zero;
-	/** onEnterDown 时保存的未收缩原始选区范围 */
-	private _origBox: BoundBox = BoundBox.Empty;
 
 	constructor(
 		private ctx: Paint,
@@ -28,7 +26,6 @@ export class ClipMode extends PaintMode {
 	onEnterMode(_data: any): void {
 		this.ctx.state = "CLIP";
 		this.clipped = false;
-		this._origBox = BoundBox.Empty;
 		this.ctx.pointerListener.on("MOVE", this.onPointerMove, this);
 		this.ctx.pointerListener.on("DOWN", this.onPointerDown, this);
 		this.ctx.pointerListener.on("UP", this.onPointerUp, this);
@@ -56,16 +53,15 @@ export class ClipMode extends PaintMode {
 		if (this.ctx.canDraw && this.ctx.state === "CLIP") {
 			this.clearRectLayer(this.selector.boundBox);
 			this.selector.drawSelection([this.selector.startPoint, this.ctx.cursorRenderer.canvasPos]);
-			this.ctx.renderLayers();
 			return;
 		}
 		if (this.ctx.state !== "CLIPPING" || !this.ctx.canDraw) {
 			return;
 		}
-
-		const currentBox = this.selector.boundBox;
-		const inBox = inBBox(this.ctx.cursorRenderer.canvasPos, currentBox);
+		const oldBox = deepClone(this.selector.boundBox);
+		const inBox = inBBox(this.ctx.cursorRenderer.canvasPos, oldBox);
 		if (!inBox) return;
+
 		const t = this.ctx.viewCtx.getTransform();
 		const inverse = t.inverse();
 		const rawOffset = Vec2D.Sub(pos, this.clipGrabStartPos);
@@ -74,13 +70,11 @@ export class ClipMode extends PaintMode {
 			y: inverse.b * rawOffset.x + inverse.d * rawOffset.y,
 		};
 
-		const oldBox = currentBox;
-
 		this.selector.startPoint = Vec2D.Add(this.selector.startPoint, offset);
 
 		const boxW = oldBox.right - oldBox.left;
 		const boxH = oldBox.bottom - oldBox.top;
-		const newBox: BoundBox = {
+		const putContentBox: BoundBox = {
 			top: this.selector.startPoint.y,
 			left: this.selector.startPoint.x,
 			bottom: this.selector.startPoint.y + boxH,
@@ -88,6 +82,7 @@ export class ClipMode extends PaintMode {
 		};
 
 		this.clearRectLayer(oldBox);
+        // todo drawSelection 修改了 boundBox 的引用，改成纯函数
 		this.selector.drawSelection([this.selector.startPoint, Vec2D.Add(this.selector.preEndpoint, offset)]);
 		this.lassoRectLayer.markDirty(BoundBox.inflate(this.selector.boundBox, MARGIN));
 
@@ -98,7 +93,7 @@ export class ClipMode extends PaintMode {
 			inflatedOld.right - inflatedOld.left,
 			inflatedOld.bottom - inflatedOld.top,
 		);
-		this.grabContent(newBox);
+		this.grabContent(putContentBox);
 		this.clipGrabStartPos = pos;
 	}
 
@@ -124,24 +119,20 @@ export class ClipMode extends PaintMode {
 	private onEnterDown() {
 		if (this.ctx.state === "CLIP") {
 			this.ctx.state = "CLIPPING";
-			this._origBox = deepClone(this.selector.boundBox);
+            // 选择框收缩前
+            const originBox = deepClone(BoundBox.Shrink(this.selector.boundBox, 2));
 
 			const origImg = this.ctx.layerManager.currentLayer.vCtx.getImageData(
-				this._origBox.left,
-				this._origBox.top,
-				this._origBox.right - this._origBox.left,
-				this._origBox.bottom - this._origBox.top,
+				originBox.left,
+				originBox.top,
+				originBox.right - originBox.left,
+				originBox.bottom - originBox.top,
 			);
-			this.clipedArea.imageData = origImg;
 
-			this.clearRectLayer(this._origBox);
+			this.clearRectLayer(originBox);
 			this.selector.setMinBoundBox(origImg);
-			const tightBox = {
-				top: this.selector.boundBox.top,
-				left: this.selector.boundBox.left,
-				bottom: this.selector.boundBox.bottom,
-				right: this.selector.boundBox.right,
-			};
+            // 选择框收缩后
+			const tightBox = deepClone(this.selector.boundBox);
 			this.clipedArea.boundBox = tightBox;
 
 			this.clipedArea.imageData = this.ctx.layerManager.currentLayer.vCtx.getImageData(
@@ -152,12 +143,12 @@ export class ClipMode extends PaintMode {
 			);
 
 			this.ctx.layerManager.currentLayer.vCtx.clearRect(
-				this._origBox.left,
-				this._origBox.top,
-				this._origBox.right - this._origBox.left,
-				this._origBox.bottom - this._origBox.top,
+				originBox.left,
+				originBox.top,
+				originBox.right - originBox.left,
+				originBox.bottom - originBox.top,
 			);
-			this.ctx.layerManager.currentLayer.markDirty(this._origBox);
+			this.ctx.layerManager.currentLayer.markDirty(originBox);
 
 			this.grabContent(tightBox);
 			this.lassoLayer.markDirty(tightBox);

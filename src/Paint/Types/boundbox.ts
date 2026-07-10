@@ -33,6 +33,18 @@ export class BoundBox {
 		};
 	}
 
+    /** 四方向收缩指定值 */
+    static Shrink(box: BoundBox, radius: number): BoundBox {
+		const tmp =  {
+			top: box.top + radius,
+			left: box.left + radius,
+			bottom: box.bottom - radius,
+			right: box.right - radius,
+		};
+        if (BoundBox.isValid(tmp)) return box;
+        return tmp;
+	}
+
 	/** 判断包围盒是否有效(面积大于0) */
 	static isValid(box: BoundBox | null): box is BoundBox {
 		return box !== null && box.right > box.left && box.bottom > box.top;
