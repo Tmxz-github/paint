@@ -28,6 +28,9 @@ export class Lasso extends PaintPlugin {
 				instance.mode = this.mode;
 			}
 		});
+		this.on("TRANSFORM_CHANGED", () => {
+			this.mode.redrawSelectionRect();
+		});
 		this._lassoLayer = new Layer({
 			width: instance.width,
 			height: instance.height,
@@ -47,6 +50,7 @@ export class Lasso extends PaintPlugin {
 			id: "lasso-rect",
 			zIndex: 200,
 			layer: this._lassoRectLayer,
+			isUIOverlay: true,
 		});
 	}
 }

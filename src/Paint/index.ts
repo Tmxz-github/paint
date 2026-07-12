@@ -127,7 +127,6 @@ export class Paint {
 			() => this.canvasBackgroundColor,
 			() => this.backgroundColor,
 			() => this.layerManager.layers,
-			() => this.plugins,
 		);
 		this.canvasHistory = new CanvasHistory();
 		this.mouseTrajectory = new MouseTrajectory();
@@ -161,6 +160,7 @@ export class Paint {
 			id: "cursor-layer",
 			zIndex: 10000,
 			layer: this.cursorLayer,
+			isUIOverlay: true,
 		};
 		this.renderPipeline.registerRenderLayer(cursorEntry);
 		this.transform.applyTo(this.viewCtx);
@@ -274,10 +274,11 @@ export class Paint {
 		this.transform.pan(pos);
 		this.transform.grabStartPos = pos;
 		this.transform.applyTo(this.viewCtx);
-		this.renderPipeline.renderAll();
 		if (this.cursorRenderer.cursorIn) {
 			this.cursorRenderer.render(this.cursorRenderer.pointerPos);
 		}
+		this.emitEvent("TRANSFORM_CHANGED", {});
+		this.renderPipeline.renderAll();
 	}
 
 	/**
@@ -287,10 +288,11 @@ export class Paint {
 	public rotateTo(degree: number) {
 		this.transform.rotateTo(degree);
 		this.transform.applyTo(this.viewCtx);
-		this.renderPipeline.renderAll();
 		if (this.cursorRenderer.cursorIn) {
 			this.cursorRenderer.render(this.cursorRenderer.pointerPos);
 		}
+		this.emitEvent("TRANSFORM_CHANGED", {});
+		this.renderPipeline.renderAll();
 	}
 
 	/** @param pos 光标在画布上的坐标，由计算得到 */
@@ -301,20 +303,22 @@ export class Paint {
 	public zoomIn(options: ZoomOptions = {}) {
 		this.transform.zoomIn(options, () => {
 			this.transform.applyTo(this.viewCtx);
-			this.renderPipeline.renderAll();
 			if (this.cursorRenderer.cursorIn) {
 				this.cursorRenderer.render(this.cursorRenderer.pointerPos);
 			}
+			this.emitEvent("TRANSFORM_CHANGED", {});
+			this.renderPipeline.renderAll();
 		});
 	}
 
 	public zoomOut(options: ZoomOptions = {}) {
 		this.transform.zoomOut(options, () => {
 			this.transform.applyTo(this.viewCtx);
-			this.renderPipeline.renderAll();
 			if (this.cursorRenderer.cursorIn) {
 				this.cursorRenderer.render(this.cursorRenderer.pointerPos);
 			}
+			this.emitEvent("TRANSFORM_CHANGED", {});
+			this.renderPipeline.renderAll();
 		});
 	}
 }

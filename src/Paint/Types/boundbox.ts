@@ -41,8 +41,8 @@ export class BoundBox {
 			bottom: box.bottom - radius,
 			right: box.right - radius,
 		};
-        if (BoundBox.isValid(tmp)) return box;
-        return tmp;
+        if (BoundBox.isValid(tmp)) return tmp;
+        return box;
 	}
 
 	/** 判断包围盒是否有效(面积大于0) */

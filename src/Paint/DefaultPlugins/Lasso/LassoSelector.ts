@@ -32,11 +32,10 @@ export class LassoSelector extends BaseSelector {
 		this.selectorCtx.beginPath();
 		this.selectorCtx.rect(left, top, right - left, bottom - top);
 		this.selectorCtx.stroke();
-
 		return { top, bottom, left, right };
 	}
 
-	/** 扫描 ImageData 四边，将 boundBox 收缩至仅含非透明像素的最小范围 */
+	/** 扫描 ImageData 四边并将 boundBox 收缩至非透明内容的最小范围（不触发绘制） */
 	public setMinBoundBox(imageData: ImageData) {
 		const width = imageData.width;
 		const height = imageData.height;
@@ -61,7 +60,7 @@ export class LassoSelector extends BaseSelector {
 
 		for (let x = 0; x < pixelLength; x += 4) {
 			if (imageData.data[x + 3 + yb * pixelLength] !== TRANSPARENT) {
-				this.boundBox.bottom -= height - yb - 2;
+				this.boundBox.bottom -= height - 1 - yb;
 				break;
 			}
 			if (x === pixelLength - 4) {
@@ -78,14 +77,14 @@ export class LassoSelector extends BaseSelector {
 			}
 			if (y === height - 1) {
 				xl += 4;
-				if (xl >= width) break;
+				if (xl >= pixelLength) break;
 				y = 0;
 			}
 		}
 
 		for (let y = 0; y < height; y += 1) {
 			if (imageData.data[xr + y * pixelLength] !== TRANSPARENT) {
-				this.boundBox.right -= width - xr / 4 - 1;
+				this.boundBox.right -= (width * 4 - 1 - xr) / 4;
 				break;
 			}
 			if (y === height - 1) {
@@ -99,27 +98,40 @@ export class LassoSelector extends BaseSelector {
 			x: this.boundBox.left,
 			y: this.boundBox.top,
 		};
-
-		const endPoint = { x: this.boundBox.right, y: this.boundBox.bottom };
-		this.drawSelection([this.startPoint, endPoint]);
+		this.preEndpoint = {
+			x: Math.floor(this.boundBox.right) + 0.5,
+			y: Math.floor(this.boundBox.bottom) + 0.5,
+		};
 	}
 
+	/** 绘制选区矩形到 selectorCtx（纯绘制，不修改状态） */
 	public drawSelection(points?: Vec2D[]) {
-		if (!points) return;
-		if (points.length < 2) return;
+		if (!points || points.length < 2) return;
 		const [startPoint, endPoint] = points;
-
-		this.preEndpoint = endPoint;
-		this.preEndpoint.x = Math.floor(this.preEndpoint.x) + 0.5;
-		this.preEndpoint.y = Math.floor(this.preEndpoint.y) + 0.5;
-
 		this.selectorCtx.save();
 		this.selectorCtx.lineWidth = this.rectLineWidth;
 		this.selectorCtx.strokeStyle = "#000";
 		this.selectorCtx.setLineDash([4, 3]);
 		this.selectorCtx.lineDashOffset = 0.1;
-		this.boundBox = this.drawRect(startPoint, this.preEndpoint);
+		this.drawRect(startPoint, endPoint);
 		this.selectorCtx.restore();
+	}
+
+	/** 从 canvas 坐标更新选区状态（boundBox / preEndpoint / startPoint），不触发绘制 */
+	public updateBounds(start: Vec2D, end: Vec2D) {
+		this.preEndpoint = {
+			x: Math.floor(end.x) + 0.5,
+			y: Math.floor(end.y) + 0.5,
+		};
+		this._startPoint = {
+			x: Math.floor(start.x) + 0.5,
+			y: Math.floor(start.y) + 0.5,
+		};
+		const left = Math.min(this._startPoint.x, this.preEndpoint.x);
+		const right = Math.max(this._startPoint.x, this.preEndpoint.x);
+		const top = Math.min(this._startPoint.y, this.preEndpoint.y);
+		const bottom = Math.max(this._startPoint.y, this.preEndpoint.y);
+		this.boundBox = { top, left, bottom, right };
 	}
 
 	public getBoundBox(): BoundBox {

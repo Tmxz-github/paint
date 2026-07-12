@@ -22,7 +22,7 @@ export interface DirPoint {
 
 export type AnyObject = Record<string, any>;
 
-export type PaintEvents = "SWITCH_BRUSH";
+export type PaintEvents = "SWITCH_BRUSH" | "TRANSFORM_CHANGED";
 
 export type PointerTypes = "UP" | "DOWN" | "LINE" | "ENTER" | "CONTEXT" | "WHEEL" | "MOVE" | "LEAVE";
 
@@ -39,4 +39,6 @@ export interface RenderLayerEntry {
 	/** 渲染层级，数值越大越靠前（后绘制） */
 	zIndex: number;
 	layer: Layer;
+	/** 是否 UI 覆盖层（不受 transform 影响，dirty rect 使用屏幕坐标） */
+	isUIOverlay?: boolean;
 }

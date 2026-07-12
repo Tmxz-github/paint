@@ -13,20 +13,21 @@ export class CursorRenderer {
 	public pointerPos: Vec2D = Vec2D.Zero;
 	/** 光标在画布上的坐标 */
 	public canvasPos: Vec2D = Vec2D.Zero;
-	/** 上一帧光标在画布坐标下的位置，用于脏区清除 */
-	private _lastCursorCanvasPos: Vec2D | null = null;
+	/** 上一帧鼠标屏幕位置，直接存 pos（避免用变化后的 transform 反推导致残影） */
+	private _lastScreenPos: Vec2D | null = null;
 
 	constructor(
-		private viewCtx: context2D,
+		private readonly viewCtx: context2D,
 		private readonly cursorLayer: Layer,
 		private readonly transform: TransformManager,
 	) {
 		this.cursor = new Cursor();
 	}
 
-	/**
-	 * @param pos 光标在 canvas 元素上的坐标
-	 */
+	private get ctx(): context2D {
+		return this.cursorLayer.vCtx as context2D;
+	}
+
 	public render(pos: Vec2D): void {
 		const t = this.viewCtx.getTransform();
 		const inverse = t.inverse();
@@ -35,27 +36,44 @@ export class CursorRenderer {
 			y: inverse.b * pos.x + inverse.d * pos.y + inverse.f,
 		};
 
+		const scale = Math.sqrt(t.a * t.a + t.b * t.b);
+		const screenRadius = this.cursor.ridus * scale;
+		const half = screenRadius + this.cursor.cursorLineWith;
+
+		// 直接用屏幕坐标计算脏区（旧位置来自 _lastScreenPos，不用 transform 反推）
 		let dirtyBox: BoundBox;
-		if (!this._lastCursorCanvasPos) {
-			const newBox = this.cursor.getRenderBBox(this.canvasPos);
-			dirtyBox = newBox;
+		if (!this._lastScreenPos) {
+			dirtyBox = {
+				top: pos.y - half, left: pos.x - half,
+				bottom: pos.y + half, right: pos.x + half,
+			};
 		} else {
-			const oldBox = this.cursor.getRenderBBox(this._lastCursorCanvasPos);
-			const newBox = this.cursor.getRenderBBox(this.canvasPos);
+			const oldBox = {
+				top: this._lastScreenPos.y - half, left: this._lastScreenPos.x - half,
+				bottom: this._lastScreenPos.y + half, right: this._lastScreenPos.x + half,
+			};
+			const newBox = {
+				top: pos.y - half, left: pos.x - half,
+				bottom: pos.y + half, right: pos.x + half,
+			};
 			dirtyBox = BoundBox.merge(oldBox, newBox);
 		}
+		dirtyBox = BoundBox.inflate(dirtyBox, 2);
+		// 清空 cursorLayer 脏区 → 画新光标 → 标记 dirty
+		const w = dirtyBox.right - dirtyBox.left;
+		const h = dirtyBox.bottom - dirtyBox.top;
+		if (w > 0 && h > 0) this.ctx.clearRect(dirtyBox.left, dirtyBox.top, w, h);
 
-		// 直接在 viewCtx 上绘制新光标，确保光标不随缩放模糊，一直平滑
 		if (!this.transform.grabReady && !this.transform.grabbing) {
-			this.viewCtx.save();
-			this.viewCtx.lineWidth = this.cursor.cursorLineWith;
-			this.viewCtx.beginPath();
-			this.viewCtx.arc(this.canvasPos.x, this.canvasPos.y, this.cursor.ridus, 0, Math.PI * 2);
-			this.viewCtx.stroke();
-			this.viewCtx.restore();
+			this.ctx.save();
+			this.ctx.lineWidth = this.cursor.cursorLineWith;
+			this.ctx.beginPath();
+			this.ctx.arc(pos.x, pos.y, screenRadius, 0, Math.PI * 2);
+			this.ctx.stroke();
+			this.ctx.restore();
 		}
 
 		this.cursorLayer.markDirty(dirtyBox);
-		this._lastCursorCanvasPos = this.canvasPos;
+		this._lastScreenPos = { x: pos.x, y: pos.y };
 	}
 }

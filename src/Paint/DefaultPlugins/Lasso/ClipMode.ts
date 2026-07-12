@@ -40,24 +40,114 @@ export class ClipMode extends PaintMode {
 		this.ctx.keyListener.off("Enter:down", this.onEnterDown);
 	}
 
-	private clearRectLayer(box: BoundBox) {
-		const b = BoundBox.inflate(box, MARGIN);
-		if (BoundBox.IsEmpty(b)) return;
-		const w = b.right - b.left;
-		const h = b.bottom - b.top;
-		this.lassoRectLayer.vCtx.clearRect(b.left, b.top, w, h);
-		this.lassoRectLayer.markDirty(b);
+	// ─── 坐标转换 ─────────────────────────────────────
+
+	private getTransform() {
+		return this.ctx.viewCtx.getTransform();
 	}
+
+	private get zoomScale(): number {
+		const t = this.getTransform();
+		return Math.sqrt(t.a * t.a + t.b * t.b);
+	}
+
+	private canvasToScreen(p: Vec2D): Vec2D {
+		const t = this.getTransform();
+		return { x: t.a * p.x + t.c * p.y + t.e, y: t.b * p.x + t.d * p.y + t.f };
+	}
+
+	private canvasBoxToScreen(box: BoundBox): BoundBox {
+		const t = this.getTransform();
+		const corners = [
+			{ x: box.left, y: box.top },
+			{ x: box.right, y: box.top },
+			{ x: box.left, y: box.bottom },
+			{ x: box.right, y: box.bottom },
+		];
+		let r: BoundBox | null = null;
+		for (const p of corners) {
+			const sx = t.a * p.x + t.c * p.y + t.e;
+			const sy = t.b * p.x + t.d * p.y + t.f;
+			if (!r) r = { top: sy, left: sx, bottom: sy, right: sx };
+			else {
+				if (sx < r.left) r.left = sx;
+				if (sx > r.right) r.right = sx;
+				if (sy < r.top) r.top = sy;
+				if (sy > r.bottom) r.bottom = sy;
+			}
+		}
+		return r!;
+	}
+
+	// ─── 对 lassoRectLayer（UI overlay）的操作 ─────────
+
+	private screenMargin(): number {
+		return MARGIN * this.zoomScale;
+	}
+
+	private clearRectLayer(canvasBox: BoundBox) {
+		const sm = this.screenMargin();
+		const sb = BoundBox.inflate(this.canvasBoxToScreen(canvasBox), sm);
+		if (BoundBox.IsEmpty(sb)) return;
+		this.lassoRectLayer.vCtx.clearRect(sb.left, sb.top, sb.right - sb.left, sb.bottom - sb.top);
+		this.lassoRectLayer.markDirty(sb);
+	}
+
+	private drawSelectionScreen(start: Vec2D, end: Vec2D) {
+		const ctx = this.lassoRectLayer.vCtx;
+		const left = Math.min(start.x, end.x);
+		const right = Math.max(start.x, end.x);
+		const top = Math.min(start.y, end.y);
+		const bottom = Math.max(start.y, end.y);
+		ctx.save();
+		ctx.lineWidth = 1;
+		ctx.strokeStyle = "#000";
+		ctx.setLineDash([4, 3]);
+		ctx.beginPath();
+		ctx.rect(left, top, right - left, bottom - top);
+		ctx.stroke();
+		ctx.restore();
+		return BoundBox.inflate({ top, left, bottom, right }, this.screenMargin());
+	}
+
+	/** transform 变化后重绘剪切框（屏幕坐标） */
+	public redrawSelectionRect(): void {
+		if (BoundBox.IsEmpty(this.selector.boundBox)) return;
+		// 清除 lassoRectLayer 全部内容
+		this.lassoRectLayer.vCtx.clearRect(0, 0, this.ctx.width, this.ctx.height);
+		this.lassoRectLayer.markDirty({
+			top: 0, left: 0, bottom: this.ctx.height, right: this.ctx.width,
+		});
+		// 基于当前 boundBox（canvas 坐标）重新转换到屏幕坐标并绘制
+		const screenStart = this.canvasToScreen(this.selector.startPoint);
+		const screenEnd = this.canvasToScreen(this.selector.preEndpoint);
+		const screenDirty = this.drawSelectionScreen(screenStart, screenEnd);
+		this.lassoRectLayer.markDirty(screenDirty);
+	}
+
+	private markRectLayerDirty(canvasBox: BoundBox) {
+		const sb = BoundBox.inflate(this.canvasBoxToScreen(canvasBox), this.screenMargin());
+		if (!BoundBox.IsEmpty(sb)) this.lassoRectLayer.markDirty(sb);
+	}
+
+	// ─── 事件处理 ─────────────────────────────────────
 
 	private onPointerMove({ pos }: MyPointerEvent) {
 		if (this.ctx.canDraw && this.ctx.state === "CLIP") {
-			this.clearRectLayer(this.selector.boundBox);
-			this.selector.drawSelection([this.selector.startPoint, this.ctx.cursorRenderer.canvasPos]);
+			const oldBox = this.selector.boundBox;
+			const newEnd = this.ctx.cursorRenderer.canvasPos;
+
+			this.selector.updateBounds(this.selector.startPoint, newEnd);
+			this.clearRectLayer(oldBox);
+			const screenDirty = this.drawSelectionScreen(
+				this.canvasToScreen(this.selector.startPoint),
+				this.canvasToScreen(newEnd),
+			);
+			this.lassoRectLayer.markDirty(screenDirty);
 			return;
 		}
-		if (this.ctx.state !== "CLIPPING" || !this.ctx.canDraw) {
-			return;
-		}
+		if (this.ctx.state !== "CLIPPING" || !this.ctx.canDraw) return;
+
 		const oldBox = deepClone(this.selector.boundBox);
 		const inBox = inBBox(this.ctx.cursorRenderer.canvasPos, oldBox);
 		if (!inBox) return;
@@ -81,10 +171,14 @@ export class ClipMode extends PaintMode {
 			right: this.selector.startPoint.x + boxW,
 		};
 
+		this.selector.updateBounds(this.selector.startPoint, Vec2D.Add(this.selector.preEndpoint, offset));
+
 		this.clearRectLayer(oldBox);
-        // todo drawSelection 修改了 boundBox 的引用，改成纯函数
-		this.selector.drawSelection([this.selector.startPoint, Vec2D.Add(this.selector.preEndpoint, offset)]);
-		this.lassoRectLayer.markDirty(BoundBox.inflate(this.selector.boundBox, MARGIN));
+		const screenDirty = this.drawSelectionScreen(
+			this.canvasToScreen(this.selector.startPoint),
+			this.canvasToScreen(this.selector.preEndpoint),
+		);
+		this.lassoRectLayer.markDirty(screenDirty);
 
 		const inflatedOld = BoundBox.inflate(oldBox, MARGIN);
 		this.lassoLayer.vCtx.clearRect(
@@ -109,9 +203,14 @@ export class ClipMode extends PaintMode {
 	private onPointerUp(_ev: MyPointerEvent) {
 		if (this.ctx.state === "CLIP") {
 			const oldBox = this.selector.boundBox;
+			const newEnd = this.ctx.cursorRenderer.canvasPos;
+			this.selector.updateBounds(this.selector.startPoint, newEnd);
 			this.clearRectLayer(oldBox);
-			this.selector.drawSelection([this.selector.startPoint, this.ctx.cursorRenderer.canvasPos]);
-			this.lassoRectLayer.markDirty(BoundBox.inflate(this.selector.boundBox, MARGIN));
+			const screenDirty = this.drawSelectionScreen(
+				this.canvasToScreen(this.selector.startPoint),
+				this.canvasToScreen(newEnd),
+			);
+			this.lassoRectLayer.markDirty(screenDirty);
 			this.ctx.renderLayers();
 		}
 	}
@@ -119,8 +218,7 @@ export class ClipMode extends PaintMode {
 	private onEnterDown() {
 		if (this.ctx.state === "CLIP") {
 			this.ctx.state = "CLIPPING";
-            // 选择框收缩前
-            const originBox = deepClone(BoundBox.Shrink(this.selector.boundBox, 2));
+			const originBox = deepClone(BoundBox.Shrink(this.selector.boundBox, 2));
 
 			const origImg = this.ctx.layerManager.currentLayer.vCtx.getImageData(
 				originBox.left,
@@ -131,7 +229,6 @@ export class ClipMode extends PaintMode {
 
 			this.clearRectLayer(originBox);
 			this.selector.setMinBoundBox(origImg);
-            // 选择框收缩后
 			const tightBox = deepClone(this.selector.boundBox);
 			this.clipedArea.boundBox = tightBox;
 
@@ -152,6 +249,7 @@ export class ClipMode extends PaintMode {
 
 			this.grabContent(tightBox);
 			this.lassoLayer.markDirty(tightBox);
+			this.ctx.renderLayers();
 		} else if (this.ctx.state === "CLIPPING") {
 			this.lassoRectLayer.vCtx.clearRect(0, 0, this.ctx.width, this.ctx.height);
 			this.lassoRectLayer.markDirty({
@@ -162,8 +260,12 @@ export class ClipMode extends PaintMode {
 			});
 
 			const boundBox = this.selector.boundBox;
-			const lassoCtx = this.lassoLayer.vCtx;
-			lassoCtx.clearRect(boundBox.left, boundBox.top, boundBox.right - boundBox.left, boundBox.bottom - boundBox.top);
+			this.lassoLayer.vCtx.clearRect(
+				boundBox.left,
+				boundBox.top,
+				boundBox.right - boundBox.left,
+				boundBox.bottom - boundBox.top,
+			);
 			this.lassoLayer.markDirty(boundBox);
 
 			this.putContent(boundBox);
@@ -175,6 +277,9 @@ export class ClipMode extends PaintMode {
 			this.ctx.layerManager.currentLayer.snapshot();
 			this.clipped = true;
 			this.ctx.state = "CLIP";
+			// 清除 selector 状态，避免缩放时 ghost 剪切框
+			this.selector.boundBox = BoundBox.Empty;
+			this.ctx.renderLayers();
 		}
 	}
 
@@ -184,18 +289,16 @@ export class ClipMode extends PaintMode {
 		this.lassoRectLayer.markDirty(fullDirty);
 		this.lassoLayer.vCtx.clearRect(0, 0, this.ctx.width, this.ctx.height);
 		this.lassoLayer.markDirty(fullDirty);
-		if (!this.clipped) {
-			this.putContent(this.clipedArea.boundBox);
-		}
+		if (!this.clipped) this.putContent(this.clipedArea.boundBox);
 	}
 
 	private grabContent(boundBox: BoundBox) {
-		const targetPos = { x: Math.floor(boundBox.left), y: Math.floor(boundBox.top) };
-		this.lassoLayer.vCtx.putImageData(this.clipedArea.imageData, targetPos.x, targetPos.y);
+		const p = { x: Math.floor(boundBox.left), y: Math.floor(boundBox.top) };
+		this.lassoLayer.vCtx.putImageData(this.clipedArea.imageData, p.x, p.y);
 	}
 
 	private putContent(boundBox: BoundBox) {
-		const targetPos = { x: Math.floor(boundBox.left), y: Math.floor(boundBox.top) };
-		this.ctx.layerManager.currentLayer.vCtx.putImageData(this.clipedArea.imageData, targetPos.x, targetPos.y);
+		const p = { x: Math.floor(boundBox.left), y: Math.floor(boundBox.top) };
+		this.ctx.layerManager.currentLayer.vCtx.putImageData(this.clipedArea.imageData, p.x, p.y);
 	}
 }
