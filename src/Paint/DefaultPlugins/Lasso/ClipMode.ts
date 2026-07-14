@@ -199,6 +199,11 @@ export class ClipMode extends PaintMode {
 
 			this.clearRectLayer(originBox);
 			this.selector.setMinBoundBox(origImg);
+			// originBox 已经是脏区了
+			this.drawSelectionScreen(
+				canvasToScreen(this.selector.startPoint, this.domMatrix),
+				canvasToScreen(this.selector.preEndpoint, this.domMatrix),
+			);
 			const tightBox = deepClone(this.selector.boundBox);
 			this.clipedArea.boundBox = tightBox;
 
