@@ -81,8 +81,8 @@ export class Line {
 		this._mouseTrajectory?.addSmoothedPoints(this.bezierPoints);
 
 		// 计算当前 Bezier 段的脏区：从采样点计算包围盒，向外膨胀笔刷半径
-		const segmentBBox = BoundBox.inflate(
-			BoundBox.fromPoints(this.bezierPoints),
+		const segmentBBox = BoundBox.Inflate(
+			BoundBox.FromPoints(this.bezierPoints),
 			this.brush.size * 1.5,
 		);
 		this._currentDirtyRect = segmentBBox;

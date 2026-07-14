@@ -124,7 +124,6 @@ export class Paint {
 		this.renderPipeline = new RenderPipeline(
 			this.viewCtx,
 			this.canvasElement,
-			() => this.canvasBackgroundColor,
 			() => this.backgroundColor,
 			() => this.layerManager.layers,
 		);

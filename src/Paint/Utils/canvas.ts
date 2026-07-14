@@ -1,6 +1,6 @@
 import type { Vec2D } from "../Types/vec2d";
-import type { TransformManager } from "../Transform";
 import type { Canvas, context2D } from "../Types/canvas";
+import type { BoundBox } from "../Types/boundbox";
 
 /** 传入高宽或者imageData获取canvasContext */
 export function createCanvasContext(imagedata: ImageData): context2D;
@@ -35,64 +35,47 @@ export function createCanvasContext(widthOrImageData: number | ImageData, height
 }
 
 /**
- * 将 screenPos（canvas 实例上的鼠标坐标，不受缩放/旋转/平移影响）
- * 转换为画布坐标（经过 transform 变换后的坐标）。
+ * 将屏幕坐标转换为画布坐标（经过 transform 变换后的坐标）。
  */
-export function screenToCanvas(pos: Vec2D, transform: TransformManager): Vec2D {
-	const rad = (transform.rotation * Math.PI) / 180;
-	const cos = Math.cos(rad);
-	const sin = Math.sin(rad);
-
-	const a = transform.scale * cos;
-	const b = transform.scale * sin;
-	const c = -transform.scale * sin;
-	const d = transform.scale * cos;
-
-	const det = a * d - b * c;
-	const invA = d / det;
-	const invB = -b / det;
-	const invC = -c / det;
-	const invD = a / det;
-
-	// 计算 e, f（与 TransformManager.applyTo 逻辑一致）
-	const centerX = transform.width / 2;
-	const centerY = transform.height / 2;
-	const dx = (transform.offset.x - centerX) / transform.scale;
-	const dy = (transform.offset.y - centerY) / transform.scale;
-	const e = centerX + dx * a + dy * c;
-	const f = centerY + dx * b + dy * d;
-
-	// 逆变换：canvas = M^(-1) * screen
-	const canvasX = invA * (pos.x - e) + invC * (pos.y - f);
-	const canvasY = invB * (pos.x - e) + invD * (pos.y - f);
-
-	return { x: canvasX, y: canvasY };
+export function screenToCanvas(pos: Vec2D, src: DOMMatrix): Vec2D {
+	const inv = src.inverse();
+	return {
+		x: inv.a * pos.x + inv.c * pos.y + inv.e,
+		y: inv.b * pos.x + inv.d * pos.y + inv.f,
+	};
 }
 
 /**
- * 将画布坐标转换为 screenPos（canvas 实例上的鼠标坐标）。
+ * 将画布坐标（经过 transform 变换后的坐标）转换为屏幕。
  */
-export function canvasToScreen(pos: Vec2D, transform: TransformManager): Vec2D {
-	const rad = (transform.rotation * Math.PI) / 180;
-	const cos = Math.cos(rad);
-	const sin = Math.sin(rad);
+export function canvasToScreen(pos: Vec2D, src: DOMMatrix): Vec2D {
+	return {
+		x: src.a * pos.x + src.c * pos.y + src.e,
+		y: src.b * pos.x + src.d * pos.y + src.f,
+	};
+}
 
-	const a = transform.scale * cos;
-	const b = transform.scale * sin;
-	const c = -transform.scale * sin;
-	const d = transform.scale * cos;
-
-	// 计算 e, f
-	const centerX = transform.width / 2;
-	const centerY = transform.height / 2;
-	const dx = (transform.offset.x - centerX) / transform.scale;
-	const dy = (transform.offset.y - centerY) / transform.scale;
-	const e = centerX + dx * a + dy * c;
-	const f = centerY + dx * b + dy * d;
-
-	// 正变换：screen = M * canvas
-	const screenX = a * pos.x + c * pos.y + e;
-	const screenY = b * pos.x + d * pos.y + f;
-
-	return { x: screenX, y: screenY };
+/**
+ * 将画布坐标包围盒转换为屏幕坐标包围盒。
+ */
+export function canvasBoxToScreen(box: BoundBox, t: DOMMatrix): BoundBox {
+	const corners = [
+		{ x: box.left, y: box.top },
+		{ x: box.right, y: box.top },
+		{ x: box.left, y: box.bottom },
+		{ x: box.right, y: box.bottom },
+	];
+	let r: { top: number; left: number; bottom: number; right: number } | null = null;
+	for (const p of corners) {
+		const sp = canvasToScreen(p, t);
+		if (!r) {
+			r = { top: sp.y, left: sp.x, bottom: sp.y, right: sp.x };
+		} else {
+			if (sp.x < r.left) r.left = sp.x;
+			if (sp.x > r.right) r.right = sp.x;
+			if (sp.y < r.top) r.top = sp.y;
+			if (sp.y > r.bottom) r.bottom = sp.y;
+		}
+	}
+	return r!;
 }

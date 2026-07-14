@@ -128,7 +128,7 @@ export class TransformManager {
 	/**
 	 * 应用变换到 canvas 上下文
 	 */
-	applyTo(ctx: context2D): void {
+	private _getMatrix(): { a: number; b: number; c: number; d: number; e: number; f: number } {
 		const center = {
 			x: this._canvasWidth / 2,
 			y: this._canvasHeight / 2,
@@ -145,8 +145,18 @@ export class TransformManager {
 		const dy = (this.offset.y - center.y) / this.scale;
 		const e = center.x + dx * a + dy * c;
 		const f = center.y + dx * b + dy * d;
+		return { a, b, c, d, e, f };
+	}
 
+	applyTo(ctx: context2D): void {
+		const { a, b, c, d, e, f } = this._getMatrix();
 		ctx.setTransform(a, b, c, d, e, f);
+	}
+
+	/** 返回当前变换的 DOMMatrix */
+	getMatrix(): DOMMatrix {
+		const { a, b, c, d, e, f } = this._getMatrix();
+		return new DOMMatrix([a, b, c, d, e, f]);
 	}
 
 	/**

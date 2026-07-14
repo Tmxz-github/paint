@@ -21,7 +21,6 @@ export class RenderPipeline {
 	constructor(
 		private readonly viewCtx: context2D,
 		private readonly canvasElement: HTMLCanvasElement,
-		private readonly getBackgroundColor: () => string,
 		private readonly getBoardColor: () => string,
 		private readonly getLayers: () => Layer[],
 	) {}
@@ -57,7 +56,7 @@ export class RenderPipeline {
 		this.viewCtx.restore();
 	}
 
-	clearView(): void {
+	clearView() {
 		this.viewCtx.clearRect(0, 0, this.canvasElement.width, this.canvasElement.height);
 	}
 
@@ -107,12 +106,7 @@ export class RenderPipeline {
 			// 将屏幕 dirty rect 四角逆变换到画布坐标 → 恢复 content
 			const t = this.viewCtx.getTransform();
 			const inv = t.inverse();
-			const corners = [
-				{ x: mergedUI.left, y: mergedUI.top },
-				{ x: mergedUI.right, y: mergedUI.top },
-				{ x: mergedUI.left, y: mergedUI.bottom },
-				{ x: mergedUI.right, y: mergedUI.bottom },
-			];
+			const corners = BoundBox.GetCorners(mergedUI);
 			let canvasBox: BoundBox | null = null;
 			for (const p of corners) {
 				const cx = inv.a * p.x + inv.c * p.y + inv.e;

@@ -6,6 +6,7 @@ import { Vec2D } from "../../Types/vec2d";
 import { deepClone, inBBox } from "../../Utils";
 import { Layer } from "../../Layer";
 import { BoundBox, ClipedArea } from "../../Types";
+import { canvasToScreen, canvasBoxToScreen } from "../../Utils/canvas";
 
 const MARGIN = 2;
 
@@ -42,41 +43,13 @@ export class ClipMode extends PaintMode {
 
 	// ─── 坐标转换 ─────────────────────────────────────
 
-	private getTransform() {
+	private get domMatrix(): DOMMatrix {
 		return this.ctx.viewCtx.getTransform();
 	}
 
 	private get zoomScale(): number {
-		const t = this.getTransform();
+		const t = this.domMatrix;
 		return Math.sqrt(t.a * t.a + t.b * t.b);
-	}
-
-	private canvasToScreen(p: Vec2D): Vec2D {
-		const t = this.getTransform();
-		return { x: t.a * p.x + t.c * p.y + t.e, y: t.b * p.x + t.d * p.y + t.f };
-	}
-
-	private canvasBoxToScreen(box: BoundBox): BoundBox {
-		const t = this.getTransform();
-		const corners = [
-			{ x: box.left, y: box.top },
-			{ x: box.right, y: box.top },
-			{ x: box.left, y: box.bottom },
-			{ x: box.right, y: box.bottom },
-		];
-		let r: BoundBox | null = null;
-		for (const p of corners) {
-			const sx = t.a * p.x + t.c * p.y + t.e;
-			const sy = t.b * p.x + t.d * p.y + t.f;
-			if (!r) r = { top: sy, left: sx, bottom: sy, right: sx };
-			else {
-				if (sx < r.left) r.left = sx;
-				if (sx > r.right) r.right = sx;
-				if (sy < r.top) r.top = sy;
-				if (sy > r.bottom) r.bottom = sy;
-			}
-		}
-		return r!;
 	}
 
 	// ─── 对 lassoRectLayer（UI overlay）的操作 ─────────
@@ -87,7 +60,7 @@ export class ClipMode extends PaintMode {
 
 	private clearRectLayer(canvasBox: BoundBox) {
 		const sm = this.screenMargin();
-		const sb = BoundBox.inflate(this.canvasBoxToScreen(canvasBox), sm);
+		const sb = BoundBox.Inflate(canvasBoxToScreen(canvasBox, this.domMatrix), sm);
 		if (BoundBox.IsEmpty(sb)) return;
 		this.lassoRectLayer.vCtx.clearRect(sb.left, sb.top, sb.right - sb.left, sb.bottom - sb.top);
 		this.lassoRectLayer.markDirty(sb);
@@ -107,7 +80,7 @@ export class ClipMode extends PaintMode {
 		ctx.rect(left, top, right - left, bottom - top);
 		ctx.stroke();
 		ctx.restore();
-		return BoundBox.inflate({ top, left, bottom, right }, this.screenMargin());
+		return BoundBox.Inflate({ top, left, bottom, right }, this.screenMargin());
 	}
 
 	/** transform 变化后重绘剪切框（屏幕坐标） */
@@ -116,18 +89,16 @@ export class ClipMode extends PaintMode {
 		// 清除 lassoRectLayer 全部内容
 		this.lassoRectLayer.vCtx.clearRect(0, 0, this.ctx.width, this.ctx.height);
 		this.lassoRectLayer.markDirty({
-			top: 0, left: 0, bottom: this.ctx.height, right: this.ctx.width,
+			top: 0,
+			left: 0,
+			bottom: this.ctx.height,
+			right: this.ctx.width,
 		});
 		// 基于当前 boundBox（canvas 坐标）重新转换到屏幕坐标并绘制
-		const screenStart = this.canvasToScreen(this.selector.startPoint);
-		const screenEnd = this.canvasToScreen(this.selector.preEndpoint);
+		const screenStart = canvasToScreen(this.selector.startPoint, this.domMatrix);
+		const screenEnd = canvasToScreen(this.selector.preEndpoint, this.domMatrix);
 		const screenDirty = this.drawSelectionScreen(screenStart, screenEnd);
 		this.lassoRectLayer.markDirty(screenDirty);
-	}
-
-	private markRectLayerDirty(canvasBox: BoundBox) {
-		const sb = BoundBox.inflate(this.canvasBoxToScreen(canvasBox), this.screenMargin());
-		if (!BoundBox.IsEmpty(sb)) this.lassoRectLayer.markDirty(sb);
 	}
 
 	// ─── 事件处理 ─────────────────────────────────────
@@ -140,8 +111,8 @@ export class ClipMode extends PaintMode {
 			this.selector.updateBounds(this.selector.startPoint, newEnd);
 			this.clearRectLayer(oldBox);
 			const screenDirty = this.drawSelectionScreen(
-				this.canvasToScreen(this.selector.startPoint),
-				this.canvasToScreen(newEnd),
+				canvasToScreen(this.selector.startPoint, this.domMatrix),
+				canvasToScreen(newEnd, this.domMatrix),
 			);
 			this.lassoRectLayer.markDirty(screenDirty);
 			return;
@@ -152,8 +123,7 @@ export class ClipMode extends PaintMode {
 		const inBox = inBBox(this.ctx.cursorRenderer.canvasPos, oldBox);
 		if (!inBox) return;
 
-		const t = this.ctx.viewCtx.getTransform();
-		const inverse = t.inverse();
+		const inverse = this.domMatrix.inverse();
 		const rawOffset = Vec2D.Sub(pos, this.clipGrabStartPos);
 		const offset: Vec2D = {
 			x: inverse.a * rawOffset.x + inverse.c * rawOffset.y,
@@ -175,12 +145,12 @@ export class ClipMode extends PaintMode {
 
 		this.clearRectLayer(oldBox);
 		const screenDirty = this.drawSelectionScreen(
-			this.canvasToScreen(this.selector.startPoint),
-			this.canvasToScreen(this.selector.preEndpoint),
+			canvasToScreen(this.selector.startPoint, this.domMatrix),
+			canvasToScreen(this.selector.preEndpoint, this.domMatrix),
 		);
 		this.lassoRectLayer.markDirty(screenDirty);
 
-		const inflatedOld = BoundBox.inflate(oldBox, MARGIN);
+		const inflatedOld = BoundBox.Inflate(oldBox, MARGIN);
 		this.lassoLayer.vCtx.clearRect(
 			inflatedOld.left,
 			inflatedOld.top,
@@ -207,8 +177,8 @@ export class ClipMode extends PaintMode {
 			this.selector.updateBounds(this.selector.startPoint, newEnd);
 			this.clearRectLayer(oldBox);
 			const screenDirty = this.drawSelectionScreen(
-				this.canvasToScreen(this.selector.startPoint),
-				this.canvasToScreen(newEnd),
+				canvasToScreen(this.selector.startPoint, this.domMatrix),
+				canvasToScreen(newEnd, this.domMatrix),
 			);
 			this.lassoRectLayer.markDirty(screenDirty);
 			this.ctx.renderLayers();

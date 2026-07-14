@@ -9,12 +9,22 @@ export interface BoundBox {
 export class BoundBox {
 	static readonly Empty: BoundBox = { top: Infinity, bottom: 0, left: Infinity, right: 0 };
 
-	static IsEmpty(a: BoundBox): boolean {
-		return a.top >= a.bottom && a.left >= a.right;
+	/** 判断 BoundBox 面积计算是否大于 0 */
+	static IsEmpty(box: BoundBox): boolean {
+		return box.top >= box.bottom && box.left >= box.right;
+	}
+
+	static GetCorners(box: BoundBox): [Vec2D, Vec2D, Vec2D, Vec2D] {
+		return [
+			{ x: box.left, y: box.top },
+			{ x: box.right, y: box.top },
+			{ x: box.left, y: box.bottom },
+			{ x: box.right, y: box.bottom },
+		];
 	}
 
 	/** 合并两个包围盒 */
-	static merge(a: BoundBox, b: BoundBox): BoundBox {
+	static Merge(a: BoundBox, b: BoundBox): BoundBox {
 		return {
 			top: Math.min(a.top, b.top),
 			left: Math.min(a.left, b.left),
@@ -24,7 +34,7 @@ export class BoundBox {
 	}
 
 	/** 四方向膨胀指定值 */
-	static inflate(box: BoundBox, radius: number): BoundBox {
+	static Inflate(box: BoundBox, radius: number): BoundBox {
 		return {
 			top: box.top - radius,
 			left: box.left - radius,
@@ -33,25 +43,25 @@ export class BoundBox {
 		};
 	}
 
-    /** 四方向收缩指定值 */
-    static Shrink(box: BoundBox, radius: number): BoundBox {
-		const tmp =  {
+	/** 四方向收缩指定值 */
+	static Shrink(box: BoundBox, radius: number): BoundBox {
+		const tmp = {
 			top: box.top + radius,
 			left: box.left + radius,
 			bottom: box.bottom - radius,
 			right: box.right - radius,
 		};
-        if (BoundBox.isValid(tmp)) return tmp;
-        return box;
+		if (BoundBox.IsValid(tmp)) return tmp;
+		return box;
 	}
 
 	/** 判断包围盒是否有效(面积大于0) */
-	static isValid(box: BoundBox | null): box is BoundBox {
-		return box !== null && box.right > box.left && box.bottom > box.top;
+	static IsValid(box: BoundBox | null): box is BoundBox {
+		return !!box && this.IsEmpty(box);
 	}
 
 	/** 从点集计算包围盒 */
-	static fromPoints(points: Vec2D[]): BoundBox {
+	static FromPoints(points: Vec2D[]): BoundBox {
 		if (points.length === 0) {
 			return { ...BoundBox.Empty };
 		}
@@ -69,7 +79,7 @@ export class BoundBox {
 	}
 
 	/** 计算两个包围盒的交集 */
-	static intersect(a: BoundBox, b: BoundBox): BoundBox {
+	static Intersect(a: BoundBox, b: BoundBox): BoundBox {
 		return {
 			top: Math.max(a.top, b.top),
 			left: Math.max(a.left, b.left),
