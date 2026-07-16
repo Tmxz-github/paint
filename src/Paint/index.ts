@@ -1,10 +1,9 @@
 import { BoundBox, ClipedArea, type ZoomOptions, type PaintState, type PaintEvents, type AnyObject } from "./Types";
 import { Vec2D } from "./Types/vec2d";
-import { KeyListener } from "./Input/key-listener";
+import { InputBus } from "./Input/InputBus";
 import { Line } from "./Line";
 import { BrushManager } from "./BrushManager";
 import { CursorRenderer } from "./CursorRenderer";
-import { PointerListener } from "./Input/pointer-listener";
 import { Pen, type BrushStyle, type BrushTypes } from "./Brushes";
 import { CanvasHistory } from "./CanvasHistory";
 import { BaseMode, type PaintMode } from "./Mode";
@@ -36,10 +35,8 @@ export class Paint {
 	public readonly brushManager: BrushManager;
 	/** 鼠标移动时划过的线，本质是点集合 */
 	public readonly line: Line;
-	/** 鼠标事件监听 */
-	public readonly pointerListener: PointerListener;
-	/** 处理键盘绑定 */
-	public readonly keyListener: KeyListener;
+	/** 统一输入事件总线 */
+	public readonly input: InputBus;
 	/** 剪切框内容以及范围 */
 	public readonly clipedArea: ClipedArea;
 	/** 图层管理器 */
@@ -117,8 +114,7 @@ export class Paint {
 		this.clipedArea = ClipedArea.Empty;
 
 		this.transform = new TransformManager(this.canvasElement.width, this.canvasElement.height, this.canvasElement);
-		this.pointerListener = new PointerListener(this.containerEl);
-		this.keyListener = new KeyListener(this.containerEl);
+		this.input = new InputBus(this.containerEl);
 		this.layerManager = new LayerManager(this.canvasElement.width, this.canvasElement.height);
 		this.brushManager = new BrushManager(new Pen(this.getCurrentCtx.bind(this), "PEN"));
 		this.renderPipeline = new RenderPipeline(
@@ -167,6 +163,7 @@ export class Paint {
 		this.baseMode = new BaseMode(this);
 		this.baseMode.onEnterMode(undefined);
 		this.mode = new DrawMode(this);
+		console.log(this.mode)
 
 		for (const plugin of this.plugins) {
 			plugin.apply(this);

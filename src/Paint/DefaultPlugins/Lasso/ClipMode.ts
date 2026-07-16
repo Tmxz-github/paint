@@ -1,7 +1,7 @@
 import { PaintMode } from "../../Mode";
 import type { Paint } from "../..";
 import { LassoSelector } from "./LassoSelector";
-import type { MyPointerEvent } from "../../Input/pointer-listener";
+import type { InputEvent } from "../../Input/InputBus";
 import { Vec2D } from "../../Types/vec2d";
 import { deepClone, inBBox } from "../../Utils";
 import { Layer } from "../../Layer";
@@ -27,18 +27,18 @@ export class ClipMode extends PaintMode {
 	onEnterMode(_data: any): void {
 		this.ctx.state = "CLIP";
 		this.clipped = false;
-		this.ctx.pointerListener.on("MOVE", this.onPointerMove, this);
-		this.ctx.pointerListener.on("DOWN", this.onPointerDown, this);
-		this.ctx.pointerListener.on("UP", this.onPointerUp, this);
-		this.ctx.keyListener.on("Enter:down", this.onEnterDown, [this.ctx], this);
+		this.ctx.input.on("pointer:move", this.onPointerMove, [], this);
+		this.ctx.input.on("pointer:down", this.onPointerDown, [], this);
+		this.ctx.input.on("pointer:up", this.onPointerUp, [], this);
+		this.ctx.input.on("enter:down", this.onEnterDown, [this.ctx], this);
 	}
 
 	onLeaveMode(_data: any): void {
 		this.offClip();
-		this.ctx.pointerListener.off("MOVE", this.onPointerMove);
-		this.ctx.pointerListener.off("DOWN", this.onPointerDown);
-		this.ctx.pointerListener.off("UP", this.onPointerUp);
-		this.ctx.keyListener.off("Enter:down", this.onEnterDown);
+		this.ctx.input.off("pointer:move", this.onPointerMove);
+		this.ctx.input.off("pointer:down", this.onPointerDown);
+		this.ctx.input.off("pointer:up", this.onPointerUp);
+		this.ctx.input.off("enter:down", this.onEnterDown);
 	}
 
 	// ─── 坐标转换 ─────────────────────────────────────
@@ -103,7 +103,8 @@ export class ClipMode extends PaintMode {
 
 	// ─── 事件处理 ─────────────────────────────────────
 
-	private onPointerMove({ pos }: MyPointerEvent) {
+	private onPointerMove(ev: InputEvent) {
+		const pos = ev.pos!;
 		if (this.ctx.canDraw && this.ctx.state === "CLIP") {
 			const oldBox = this.selector.boundBox;
 			const newEnd = this.ctx.cursorRenderer.canvasPos;
@@ -161,7 +162,8 @@ export class ClipMode extends PaintMode {
 		this.clipGrabStartPos = pos;
 	}
 
-	private onPointerDown({ pos }: MyPointerEvent) {
+	private onPointerDown(ev: InputEvent) {
+		const pos = ev.pos!;
 		if (this.ctx.state === "CLIP") {
 			this.selector.startPoint = deepClone(this.ctx.cursorRenderer.canvasPos);
 		}
@@ -170,7 +172,7 @@ export class ClipMode extends PaintMode {
 		}
 	}
 
-	private onPointerUp(_ev: MyPointerEvent) {
+	private onPointerUp(_ev: InputEvent) {
 		if (this.ctx.state === "CLIP") {
 			const oldBox = this.selector.boundBox;
 			const newEnd = this.ctx.cursorRenderer.canvasPos;
@@ -197,7 +199,7 @@ export class ClipMode extends PaintMode {
 				originBox.bottom - originBox.top,
 			);
 
-			this.clearRectLayer(originBox);
+			this.clearRectLayer(BoundBox.Inflate(originBox, 2));
 			this.selector.setMinBoundBox(origImg);
 			// originBox 已经是脏区了
 			this.drawSelectionScreen(
@@ -244,6 +246,7 @@ export class ClipMode extends PaintMode {
 			this.lassoLayer.markDirty(boundBox);
 
 			this.putContent(boundBox);
+			this.ctx.layerManager.currentLayer.markDirty(boundBox);
 			this.ctx.canvasHistory.commitChange(
 				this.clipedArea.boundBox,
 				this.ctx.layerManager.currentLayer,
@@ -264,7 +267,10 @@ export class ClipMode extends PaintMode {
 		this.lassoRectLayer.markDirty(fullDirty);
 		this.lassoLayer.vCtx.clearRect(0, 0, this.ctx.width, this.ctx.height);
 		this.lassoLayer.markDirty(fullDirty);
-		if (!this.clipped) this.putContent(this.clipedArea.boundBox);
+		if (!this.clipped && !ClipedArea.IsEmpty(this.clipedArea)) {
+			this.putContent(this.clipedArea.boundBox);
+			this.ctx.layerManager.currentLayer.markDirty(this.clipedArea.boundBox);
+		}
 	}
 
 	private grabContent(boundBox: BoundBox) {

@@ -57,7 +57,7 @@ export class BoundBox {
 
 	/** 判断包围盒是否有效(面积大于0) */
 	static IsValid(box: BoundBox | null): box is BoundBox {
-		return !!box && this.IsEmpty(box);
+		return !!box && !this.IsEmpty(box);
 	}
 
 	/** 从点集计算包围盒 */

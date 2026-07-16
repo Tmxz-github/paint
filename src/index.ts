@@ -52,8 +52,7 @@ export { DrawMode } from "./Paint/Mode/drawMode";
 export { BaseMode, type PaintMode } from "./Paint/Mode";
 
 // --- 输入事件 ---
-export { KeyListener } from "./Paint/Input/key-listener";
-export { PointerListener } from "./Paint/Input/pointer-listener";
+export { InputBus } from "./Paint/Input/InputBus";
 
 // --- 插件基类与内置插件 ---
 export { PaintPlugin, type BrushCommitData } from "./Paint/DefaultPlugins";

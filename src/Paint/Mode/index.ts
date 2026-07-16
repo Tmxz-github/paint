@@ -1,5 +1,5 @@
 import type { Paint } from "..";
-import type { MyPointerEvent } from "../Input/pointer-listener";
+import type { InputEvent } from "../Input/InputBus";
 
 export abstract class PaintMode {
 	abstract onEnterMode(data: any): void;
@@ -11,96 +11,105 @@ export class BaseMode extends PaintMode {
 		super();
 	}
 	onEnterMode(_data: any) {
-		this.ctx.pointerListener.on("MOVE", (ev: MyPointerEvent) => {
+		this.ctx.input.on("pointer:move", (ev) => {
 			this.onPointerMove(ev);
 		});
-		this.ctx.pointerListener.on("DOWN", (ev: MyPointerEvent) => {
+		this.ctx.input.on("pointer:down", (ev) => {
 			this.onPointerDown(ev);
 		});
-		this.ctx.pointerListener.on("UP", (ev: MyPointerEvent) => {
+		this.ctx.input.on("pointer:up", (ev) => {
 			this.onPointerUp(ev);
 		});
-		this.ctx.pointerListener.on("LEAVE", (ev: MyPointerEvent) => {
+		this.ctx.input.on("pointer:leave", (ev) => {
 			this.onPointerLeave(ev);
 		});
-		this.ctx.pointerListener.on("ENTER", (ev: MyPointerEvent) => {
+		this.ctx.input.on("pointer:enter", (ev) => {
 			this.onPointerEnter(ev);
 		});
-		this.ctx.pointerListener.on("WHEEL", (ev: MyPointerEvent) => {
+		this.ctx.input.on("wheel:up", (ev) => {
+			this.onWheel(ev);
+		});
+		this.ctx.input.on("wheel:down", (ev) => {
 			this.onWheel(ev);
 		});
 
-		this.ctx.keyListener.on(" :down", () => {
+		this.ctx.input.on("space:down", () => {
 			this.ctx.transform.grabReady = true;
 		});
-		this.ctx.keyListener.on(" :up", () => {
+		this.ctx.input.on("space:up", () => {
 			this.ctx.transform.grabReady = false;
 			this.ctx.transform.grabbing = false;
 		});
-		this.ctx.keyListener.control().on("z:up", () => {
+		this.ctx.input.control().on("z:up", () => {
 			this.ctx.canvasHistory.undo();
 			this.ctx.renderLayers();
 		});
-		this.ctx.keyListener.control().on("r:up", () => {
+		this.ctx.input.control().on("r:up", () => {
 			this.ctx.canvasHistory.redo();
 			this.ctx.renderLayers();
 		});
-		this.ctx.keyListener.on("w:down", () => {
+		this.ctx.input.on("w:down", () => {
 			this.ctx.zoomIn();
 		});
-		this.ctx.keyListener.on("s:down", () => {
+		this.ctx.input.on("s:down", () => {
 			this.ctx.zoomOut();
 		});
 	}
 	onLeaveMode(_data: any) {
 		// todo off
 	}
-	private onPointerMove({ pos }: MyPointerEvent) {
+	private onPointerMove(ev: InputEvent) {
+		const pos = ev.pos!;
 		this.ctx.cursorRenderer.pointerPos = pos;
-		this.ctx.renderLayers();
 		this.ctx.cursorRenderer.render(pos);
+		this.ctx.renderLayers();
 
 		if (this.ctx.transform.grabbing) {
 			this.ctx.grabTo(this.ctx.cursorRenderer.pointerPos);
 		}
 	}
-	private onPointerDown({ pos }: MyPointerEvent) {
+	private onPointerDown(ev: InputEvent) {
+		const pos = ev.pos!;
 		this.ctx.canvasReady = true;
 		if (this.ctx.transform.grabReady) {
 			this.ctx.transform.grabbing = true;
 		}
 		this.ctx.transform.grabStartPos = pos;
 	}
-	private onPointerUp({ pos }: MyPointerEvent) {
+	private onPointerUp(ev: InputEvent) {
+		const pos = ev.pos!;
 		this.ctx.cursorRenderer.pointerPos = pos;
 		this.ctx.canvasReady = false;
 		this.ctx.transform.grabbing = false;
 		this.ctx.renderLayers();
 	}
-	private onPointerLeave({ pos }: MyPointerEvent) {
+	private onPointerLeave(ev: InputEvent) {
+		const pos = ev.pos!;
 		this.ctx.cursorRenderer.pointerPos = pos;
 		this.ctx.canvasReady = false;
 		this.ctx.cursorRenderer.cursorIn = false;
 		this.ctx.line.endLine();
 		this.ctx.renderPipeline.renderAll();
 	}
-	private onPointerEnter({ pos }: MyPointerEvent) {
+	private onPointerEnter(ev: InputEvent) {
+		const pos = ev.pos!;
 		this.ctx.cursorRenderer.pointerPos = pos;
 		this.ctx.containerEl.focus();
 		this.ctx.cursorRenderer.cursorIn = true;
 		this.ctx.renderLayers();
 	}
-	private onWheel({ e, pos }: MyPointerEvent) {
+	private onWheel(ev: InputEvent) {
+		const pos = ev.pos!;
 		this.ctx.cursorRenderer.pointerPos = pos;
-		(e as WheelEvent).deltaY < 0
+		(ev.e as WheelEvent).deltaY < 0
 			? this.ctx.zoomIn({
 					zoomMode: "wheel",
-					center: { x: e.offsetX, y: e.offsetY },
+					center: { x: pos.x, y: pos.y },
 					smooth: true,
 				})
 			: this.ctx.zoomOut({
 					zoomMode: "wheel",
-					center: { x: e.offsetX, y: e.offsetY },
+					center: { x: pos.x, y: pos.y },
 					smooth: true,
 				});
 	}

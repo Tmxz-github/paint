@@ -15,7 +15,7 @@ onMounted(() => {
 		width: 1024,
 		use: [new Eraser(), new Lasso()],
 	});
-	paint.value.pointerListener.on("MOVE", () => {
+	paint.value.input.on("pointer:move", () => {
 		const div = document.querySelector("#pos")!;
 		div.innerHTML = `${paint.value?.cursorRenderer.canvasPos.x}:::${paint.value?.cursorRenderer.canvasPos.y}`;
 	});
